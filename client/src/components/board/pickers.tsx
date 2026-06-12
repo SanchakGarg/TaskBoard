@@ -66,6 +66,7 @@ function Popover({
         createPortal(
           <div
             ref={menuRef}
+            data-popover
             style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_WIDTH, zIndex: 60 }}
             className="anim-modal max-h-72 overflow-y-auto rounded-lg border-2 border-ink bg-paper p-1.5 shadow-card-lift"
           >

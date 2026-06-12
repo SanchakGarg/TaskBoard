@@ -91,6 +91,7 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
         createPortal(
         <div
           ref={menuRef}
+          data-popover
           style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_W, zIndex: 60 }}
           className="anim-modal rounded-lg border-2 border-ink bg-paper p-2 shadow-card-lift"
         >

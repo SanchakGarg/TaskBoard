@@ -30,7 +30,10 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!formRef.current?.contains(e.target as Node)) onCancel();
+      const target = e.target as Element;
+      // clicks inside portaled picker menus are not "outside" the form
+      if (target.closest?.("[data-popover]")) return;
+      if (!formRef.current?.contains(target)) onCancel();
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
