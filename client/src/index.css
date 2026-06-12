@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #faf7ef;
+  --color-paper-dark: #f1ecdf;
+  --color-ink: #2d2a26;
+  --color-ink-soft: #6b645a;
+  --color-grid: #d9e4f0;
+  --color-pen-blue: #2f5d9e;
+  --color-pen-red: #c0533e;
+  --color-pen-green: #4a7c59;
+  --color-pen-amber: #c98a2d;
+  --color-sticky: #fdf3b9;
+
+  --font-hand: "Segoe Print", "Comic Sans MS", cursive;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 2px 3px 0 rgba(45, 42, 38, 0.15);
+  --shadow-card-lift: 4px 8px 0 rgba(45, 42, 38, 0.18);
+}
+
+/* ---------- graph paper background, no images ---------- */
+.graph-paper {
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ---------- the 5 animation types ---------- */
+
+/* 1. hover — 200ms */
+.anim-hover {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease,
+    transform 200ms ease, box-shadow 200ms ease;
+}
+
+/* 2. lift — 250ms */
+.anim-lift {
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+.anim-lift:hover {
+  transform: translateY(-4px) rotate(-0.4deg);
+  box-shadow: var(--shadow-card-lift);
+}
+
+/* 3. modal — 300ms */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.anim-modal {
+  animation: modal-in 300ms ease both;
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.anim-backdrop {
+  animation: backdrop-in 300ms ease both;
+}
+
+/* 4. sidebar — 250ms */
+.anim-sidebar {
+  transition: transform 250ms ease, width 250ms ease, margin 250ms ease;
+}
+
+/* 5. success — 400ms */
+@keyframes success-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.anim-success {
+  animation: success-pop 400ms ease;
+}
+
+/* ---------- floating illustrations ---------- */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+.anim-float {
+  animation: float 3.5s ease-in-out infinite;
+}
+
+/* ---------- notebook flourishes ---------- */
+.sketch-border {
+  border: 2px solid var(--color-ink);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+
+.sticky-note {
+  background: var(--color-sticky);
+  box-shadow: var(--shadow-card);
+  transform: rotate(-0.8deg);
+}
+
+@keyframes drop-pulse {
+  0%,
+  100% {
+    background-color: rgba(47, 93, 158, 0.06);
+  }
+  50% {
+    background-color: rgba(47, 93, 158, 0.12);
+  }
+}
+.drop-target {
+  animation: drop-pulse 1s ease-in-out infinite;
+  outline: 2px dashed var(--color-pen-blue);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.dragging {
+  opacity: 0.4;
+  transform: rotate(2deg);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}

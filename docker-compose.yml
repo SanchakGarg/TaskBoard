@@ -1,0 +1,13 @@
+services:
+  taskboard:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - taskboard-data:/data
+    restart: unless-stopped
+
+volumes:
+  taskboard-data:

@@ -1,0 +1,153 @@
+import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { config } from "./config";
+
+mkdirSync(dirname(config.dbPath), { recursive: true });
+
+export const db = new Database(config.dbPath, { create: true });
+
+db.run("PRAGMA journal_mode = WAL");
+db.run("PRAGMA foreign_keys = ON");
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    email TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    avatar_url TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (provider, subject)
+  );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS columns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    column_id INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+    due_date TEXT,
+    tags TEXT NOT NULL DEFAULT '[]',
+    assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT,
+    created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT 'yellow',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    due_date TEXT,
+    done INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS widget_layouts (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    layout TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS focus (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    goal TEXT NOT NULL DEFAULT '',
+    date TEXT NOT NULL DEFAULT (date('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position);
+  CREATE INDEX IF NOT EXISTS idx_columns_project ON columns(project_id, position);
+  CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC);
+`);
+
+export interface User {
+  id: number;
+  provider: string;
+  subject: string;
+  email: string;
+  name: string;
+  avatar_url: string;
+}
+
+export interface Task {
+  id: number;
+  column_id: number;
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  due_date: string | null;
+  tags: string;
+  assignee_id: number | null;
+  position: number;
+  completed_at: string | null;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const upsertUser = (u: {
+  provider: string;
+  subject: string;
+  email: string;
+  name: string;
+  avatar_url: string;
+}): User =>
+  db
+    .query<User, [string, string, string, string, string]>(
+      `INSERT INTO users (provider, subject, email, name, avatar_url)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (provider, subject)
+       DO UPDATE SET email = excluded.email, name = excluded.name, avatar_url = excluded.avatar_url
+       RETURNING *`
+    )
+    .get(u.provider, u.subject, u.email, u.name, u.avatar_url)!;
+
+export const getUser = (id: number): User | null =>
+  db.query<User, [number]>("SELECT * FROM users WHERE id = ?").get(id);
+
+export const logActivity = (
+  userId: number,
+  projectId: number | null,
+  action: string,
+  detail = ""
+) =>
+  db.run(
+    "INSERT INTO activity (user_id, project_id, action, detail) VALUES (?, ?, ?, ?)",
+    [userId, projectId, action, detail]
+  );
