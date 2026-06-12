@@ -7,7 +7,9 @@ import { Sidebar, type View } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { Dashboard } from "./components/widgets/Dashboard";
 import { KanbanBoard } from "./components/board/KanbanBoard";
+import { ListBoard } from "./components/board/ListBoard";
 import { MyTasksPage } from "./components/MyTasksPage";
+import { Tabs } from "./components/Tabs";
 
 export function App() {
   const { user, loading } = useAuth();
@@ -24,10 +26,17 @@ export function App() {
   if (loading) return <div className="graph-paper min-h-screen" />;
   if (!user) return <Login />;
 
-  const createProject = async (name: string) => {
-    const p = await api.post<Project>("/projects", { name });
+  const createProject = async (name: string, viewType: "kanban" | "list") => {
+    const p = await api.post<Project>("/projects", { name, viewType });
     await api.get<Project[]>("/projects").then(setProjects);
     setView({ kind: "board", projectId: p.id });
+  };
+
+  const reorderProjects = (ids: number[]) => {
+    setProjects((prev) =>
+      [...prev].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+    );
+    api.patch("/projects/reorder", { ids });
   };
 
   const deleteProject = async (id: number) => {
@@ -56,11 +65,21 @@ export function App() {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={title} />
+        {view.kind !== "dashboard" && (
+          <Tabs
+            projects={projects}
+            view={view}
+            onNavigate={setView}
+            onReorder={reorderProjects}
+          />
+        )}
         <main className="min-h-0 flex-1 overflow-y-auto">
           {view.kind === "mytasks" ? (
             <MyTasksPage />
           ) : view.kind === "dashboard" ? (
             <Dashboard />
+          ) : projects.find((p) => p.id === view.projectId)?.view_type === "list" ? (
+            <ListBoard key={view.projectId} projectId={view.projectId} />
           ) : (
             <KanbanBoard key={view.projectId} projectId={view.projectId} />
           )}

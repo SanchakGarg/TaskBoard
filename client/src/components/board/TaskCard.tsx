@@ -13,6 +13,14 @@ interface TaskCardProps {
 const isOverdue = (due: string | null) =>
   !!due && new Date(due + "T23:59:59") < new Date();
 
+// card tint follows priority
+const priorityCard: Record<Task["priority"], string> = {
+  urgent: "border-pen-red bg-pen-red/10",
+  high: "border-pen-amber bg-pen-amber/10",
+  medium: "border-ink/70 bg-paper",
+  low: "border-ink/35 bg-paper",
+};
+
 export function TaskCard({
   task,
   isDragging,
@@ -27,7 +35,7 @@ export function TaskCard({
       {...dragHandleProps}
       onClick={onClick}
       onContextMenu={onContextMenu}
-      className={`anim-lift-card cursor-pointer rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
+      className={`anim-lift-card cursor-pointer rounded-lg border-2 p-3 shadow-card ${priorityCard[task.priority]} ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
     >
       <p className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{task.title}</p>
 

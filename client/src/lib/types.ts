@@ -10,6 +10,8 @@ export interface Project {
   id: number;
   name: string;
   description: string;
+  view_type: "kanban" | "list";
+  position: number;
   created_at: string;
 }
 
@@ -24,7 +26,7 @@ export type Priority = "low" | "medium" | "high" | "urgent";
 
 export interface Task {
   id: number;
-  column_id: number;
+  column_id: number | null;
   title: string;
   description: string;
   priority: Priority;

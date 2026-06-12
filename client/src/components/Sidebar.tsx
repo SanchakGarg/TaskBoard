@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, ListChecks, KanbanSquare, Plus, Trash2, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, ListChecks, KanbanSquare, List, Plus, Trash2, ChevronLeft } from "lucide-react";
 import { Button, Divider, Input, Modal, Tooltip } from "./ui";
 import { Notebook } from "../illustrations";
 import type { Project } from "../lib/types";
@@ -13,7 +13,7 @@ interface SidebarProps {
   projects: Project[];
   view: View;
   onNavigate: (view: View) => void;
-  onCreateProject: (name: string) => Promise<void>;
+  onCreateProject: (name: string, viewType: "kanban" | "list") => Promise<void>;
   onDeleteProject: (id: number) => Promise<void>;
   collapsed: boolean;
   onToggle: () => void;
@@ -30,12 +30,14 @@ export function Sidebar({
 }: SidebarProps) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [viewType, setViewType] = useState<"kanban" | "list">("kanban");
 
   const submit = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    await onCreateProject(trimmed);
+    await onCreateProject(trimmed, viewType);
     setName("");
+    setViewType("kanban");
     setCreating(false);
   };
 
@@ -46,7 +48,7 @@ export function Sidebar({
       >
         <div className={`flex gap-2 p-3 ${collapsed ? "flex-col items-center" : "items-center"}`}>
           <Notebook size={28} className="shrink-0 text-pen-blue" />
-          {!collapsed && <span className="font-hand text-lg font-bold">Taskboard</span>}
+          {!collapsed && <span className="font-hand text-lg font-bold">Jotter</span>}
           <button
             onClick={onToggle}
             aria-label="Toggle sidebar"
@@ -83,7 +85,7 @@ export function Sidebar({
           {projects.map((p) => (
             <div key={p.id} className="group/project relative">
               <NavItem
-                icon={<KanbanSquare size={18} />}
+                icon={p.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />}
                 label={p.name}
                 collapsed={collapsed}
                 active={view.kind === "board" && view.projectId === p.id}
@@ -134,6 +136,24 @@ export function Sidebar({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { type: "kanban", label: "Kanban board", icon: <KanbanSquare size={16} /> },
+                { type: "list", label: "List", icon: <List size={16} /> },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.type}
+                type="button"
+                onClick={() => setViewType(opt.type)}
+                className={`anim-hover flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${viewType === opt.type ? "border-ink bg-paper-dark font-semibold" : "border-ink-soft/40 text-ink-soft hover:border-ink hover:text-ink"}`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <Button type="submit" disabled={!name.trim()}>
             Create
           </Button>

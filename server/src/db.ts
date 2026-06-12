@@ -27,6 +27,8 @@ db.run(`
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    view_type TEXT NOT NULL DEFAULT 'kanban' CHECK (view_type IN ('kanban','list')),
+    position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -39,7 +41,8 @@ db.run(`
 
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    column_id INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+    -- NULL column_id = personal task, not attached to any project
+    column_id INTEGER REFERENCES columns(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
@@ -96,6 +99,52 @@ db.run(`
   CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC);
 `);
 
+// ---------- migrations for databases created before these columns existed ----------
+
+const hasColumn = (table: string, column: string): boolean =>
+  !!db
+    .query("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")
+    .get(table, column);
+
+if (!hasColumn("projects", "view_type"))
+  db.run("ALTER TABLE projects ADD COLUMN view_type TEXT NOT NULL DEFAULT 'kanban'");
+if (!hasColumn("projects", "position"))
+  db.run("ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
+
+// tasks.column_id used to be NOT NULL; personal tasks need it nullable.
+const columnIdNotNull = db
+  .query<{ nn: number }, []>(
+    `SELECT "notnull" AS nn FROM pragma_table_info('tasks') WHERE name = 'column_id'`
+  )
+  .get();
+if (columnIdNotNull?.nn) {
+  db.run("PRAGMA foreign_keys = OFF");
+  db.transaction(() => {
+    db.run(`
+      CREATE TABLE tasks_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        column_id INTEGER REFERENCES columns(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+        due_date TEXT,
+        tags TEXT NOT NULL DEFAULT '[]',
+        assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT,
+        created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+    db.run("INSERT INTO tasks_migrated SELECT * FROM tasks");
+    db.run("DROP TABLE tasks");
+    db.run("ALTER TABLE tasks_migrated RENAME TO tasks");
+    db.run("CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position)");
+  })();
+  db.run("PRAGMA foreign_keys = ON");
+}
+
 export interface User {
   id: number;
   provider: string;
@@ -107,7 +156,7 @@ export interface User {
 
 export interface Task {
   id: number;
-  column_id: number;
+  column_id: number | null;
   title: string;
   description: string;
   priority: "low" | "medium" | "high" | "urgent";

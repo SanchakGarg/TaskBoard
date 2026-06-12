@@ -15,7 +15,7 @@ const str = (v: unknown, max = 2000): string | null =>
 
 apiRouter.get("/projects", (req, res) => {
   const rows = db
-    .query("SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at")
+    .query("SELECT * FROM projects WHERE owner_id = ? ORDER BY position, created_at")
     .all(user(req).id);
   res.json(rows);
 });
@@ -23,10 +23,18 @@ apiRouter.get("/projects", (req, res) => {
 apiRouter.post("/projects", (req, res) => {
   const name = str(req.body?.name, 200)?.trim();
   if (!name) return bad(res, "name required");
+  const viewType = req.body?.viewType === "list" ? "list" : "kanban";
+  const nextPos = db
+    .query("SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE owner_id = ?")
+    .get(user(req).id) as { p: number };
   const project = db
-    .query("INSERT INTO projects (name, description, owner_id) VALUES (?, ?, ?) RETURNING *")
-    .get(name, str(req.body?.description) ?? "", user(req).id) as { id: number };
-  const defaults = ["Todo", "In Progress", "Done"];
+    .query(
+      "INSERT INTO projects (name, description, owner_id, view_type, position) VALUES (?, ?, ?, ?, ?) RETURNING *"
+    )
+    .get(name, str(req.body?.description) ?? "", user(req).id, viewType, nextPos.p) as {
+    id: number;
+  };
+  const defaults = viewType === "list" ? ["Tasks"] : ["Todo", "In Progress", "Done"];
   defaults.forEach((col, i) =>
     db.run("INSERT INTO columns (project_id, name, position) VALUES (?, ?, ?)", [
       project.id,
@@ -36,6 +44,23 @@ apiRouter.post("/projects", (req, res) => {
   );
   logActivity(user(req).id, project.id, "created project", name);
   res.status(201).json(project);
+});
+
+apiRouter.patch("/projects/reorder", (req, res) => {
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== "number"))
+    return bad(res, "ids must be an array of numbers");
+  const apply = db.transaction(() => {
+    ids.forEach((id, i) =>
+      db.run("UPDATE projects SET position = ? WHERE id = ? AND owner_id = ?", [
+        i,
+        id,
+        user(req).id,
+      ])
+    );
+  });
+  apply();
+  res.json({ ok: true });
 });
 
 apiRouter.delete("/projects/:id", (req, res) => {
@@ -104,26 +129,43 @@ const ownsColumn = (req: unknown, columnId: number): { project_id: number } | nu
     )
     .get(columnId, user(req).id) as { project_id: number } | null;
 
-const ownsTask = (req: unknown, taskId: number): (Task & { project_id: number }) | null =>
+const ownsTask = (
+  req: unknown,
+  taskId: number
+): (Task & { project_id: number | null }) | null =>
   db
     .query(
       `SELECT t.*, c.project_id FROM tasks t
-       JOIN columns c ON c.id = t.column_id
-       JOIN projects p ON p.id = c.project_id
-       WHERE t.id = ? AND p.owner_id = ?`
+       LEFT JOIN columns c ON c.id = t.column_id
+       LEFT JOIN projects p ON p.id = c.project_id
+       WHERE t.id = ?
+         AND (p.owner_id = ?2 OR (t.column_id IS NULL AND t.created_by = ?2))`
     )
-    .get(taskId, user(req).id) as (Task & { project_id: number }) | null;
+    .get(taskId, user(req).id) as (Task & { project_id: number | null }) | null;
 
 apiRouter.post("/tasks", (req, res) => {
-  const columnId = Number(req.body?.columnId);
+  const columnId = req.body?.columnId == null ? null : Number(req.body.columnId);
   const title = str(req.body?.title, 500)?.trim();
-  if (!title || !columnId) return bad(res, "title and columnId required");
-  const owned = ownsColumn(req, columnId);
-  if (!owned) return res.status(404).json({ error: "column not found" });
+  if (!title) return bad(res, "title required");
 
-  const next = db
-    .query("SELECT COALESCE(MAX(position) + 1, 0) AS p FROM tasks WHERE column_id = ?")
-    .get(columnId) as { p: number };
+  let projectId: number | null = null;
+  if (columnId !== null) {
+    const owned = ownsColumn(req, columnId);
+    if (!owned) return res.status(404).json({ error: "column not found" });
+    projectId = owned.project_id;
+  }
+
+  const next = (
+    columnId !== null
+      ? db
+          .query("SELECT COALESCE(MAX(position) + 1, 0) AS p FROM tasks WHERE column_id = ?")
+          .get(columnId)
+      : db
+          .query(
+            "SELECT COALESCE(MAX(position) + 1, 0) AS p FROM tasks WHERE column_id IS NULL AND created_by = ?"
+          )
+          .get(user(req).id)
+  ) as { p: number };
   const task = db
     .query(
       `INSERT INTO tasks (column_id, title, description, priority, due_date, tags, position, created_by)
@@ -141,7 +183,7 @@ apiRouter.post("/tasks", (req, res) => {
       next.p,
       user(req).id
     );
-  logActivity(user(req).id, owned.project_id, "created task", title);
+  logActivity(user(req).id, projectId, "created task", title);
   res.status(201).json(task);
 });
 
@@ -215,9 +257,10 @@ apiRouter.get("/tasks/mine", (req, res) => {
   const rows = db
     .query(
       `SELECT t.*, c.project_id FROM tasks t
-       JOIN columns c ON c.id = t.column_id
-       JOIN projects p ON p.id = c.project_id
-       WHERE p.owner_id = ? ORDER BY t.due_date IS NULL, t.due_date`
+       LEFT JOIN columns c ON c.id = t.column_id
+       LEFT JOIN projects p ON p.id = c.project_id
+       WHERE p.owner_id = ?1 OR (t.column_id IS NULL AND t.created_by = ?1)
+       ORDER BY t.due_date IS NULL, t.due_date`
     )
     .all(user(req).id);
   res.json(rows);

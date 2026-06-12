@@ -16,7 +16,7 @@ export function Login() {
     <div className="graph-paper flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm text-center">
         <Rocket size={64} className="anim-float mx-auto text-pen-blue" />
-        <h1 className="font-hand mt-2 text-3xl font-bold">Taskboard</h1>
+        <h1 className="font-hand mt-2 text-3xl font-bold">Jotter</h1>
         <p className="mt-1 text-ink-soft">Your notebook for getting things done.</p>
 
         <Divider label="sign in" className="my-5" />

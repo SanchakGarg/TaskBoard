@@ -6,6 +6,8 @@ import { useBoardDrag } from "../../hooks/useDrag";
 import { Button, ContextMenu, Input, type ContextMenuItem } from "../ui";
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
+import { QuickAddTask } from "./QuickAddTask";
+import { CompletedSection } from "./CompletedSection";
 import { SketchArrow } from "../../illustrations";
 
 export function KanbanBoard({ projectId }: { projectId: number }) {
@@ -13,7 +15,6 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selected, setSelected] = useState<Task | null>(null);
   const [addingTo, setAddingTo] = useState<number | null>(null);
-  const [newTitle, setNewTitle] = useState("");
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumn, setNewColumn] = useState("");
   const [search, setSearch] = useState("");
@@ -48,12 +49,11 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
 
   const { dragging, overColumn, dragProps, dropProps } = useBoardDrag(moveTask);
 
-  const createTask = async (columnId: number) => {
-    const title = newTitle.trim();
-    if (!title) return;
-    await api.post("/tasks", { columnId, title });
-    setNewTitle("");
-    setAddingTo(null);
+  const createTask = async (
+    columnId: number,
+    data: { title: string; dueDate?: string; tags: string[] }
+  ) => {
+    await api.post("/tasks", { columnId, ...data });
     load();
   };
 
@@ -137,6 +137,8 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
         const colTasks = tasks
           .filter((t) => t.column_id === col.id && matches(t))
           .sort((a, b) => a.position - b.position);
+        const openTasks = colTasks.filter((t) => !t.completed_at);
+        const doneTasks = colTasks.filter((t) => t.completed_at);
         return (
           <section
             key={col.id}
@@ -164,7 +166,7 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
             </header>
 
             <div className="-m-1 flex flex-col gap-2 overflow-y-auto p-1">
-              {colTasks.map((task) => (
+              {openTasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
@@ -177,33 +179,33 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
                   }}
                 />
               ))}
+              <CompletedSection count={doneTasks.length}>
+                {doneTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    isDragging={dragging?.taskId === task.id}
+                    dragHandleProps={dragProps(task.id, col.id)}
+                    onClick={() => setSelected(task)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setMenu({ x: e.clientX, y: e.clientY, task });
+                    }}
+                  />
+                ))}
+              </CompletedSection>
             </div>
 
             {addingTo === col.id ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createTask(col.id);
-                }}
-                className="mt-2 flex flex-col gap-2"
-              >
-                <Input
-                  autoFocus
-                  placeholder="Task title"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onBlur={() => !newTitle.trim() && setAddingTo(null)}
+              <div className="mt-2">
+                <QuickAddTask
+                  onCreate={(data) => createTask(col.id, data)}
+                  onCancel={() => setAddingTo(null)}
                 />
-                <Button type="submit" size="sm" disabled={!newTitle.trim()}>
-                  Add
-                </Button>
-              </form>
+              </div>
             ) : (
               <button
-                onClick={() => {
-                  setAddingTo(col.id);
-                  setNewTitle("");
-                }}
+                onClick={() => setAddingTo(col.id)}
                 className="anim-hover mt-2 flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-ink-soft hover:bg-paper hover:text-ink"
               >
                 <Plus size={15} /> Add task
