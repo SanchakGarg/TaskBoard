@@ -11,7 +11,7 @@ import {
   type Task,
 } from "../../lib/types";
 import { Badge, Checkbox, ContextMenu, priorityTone, useConfirm, type ContextMenuItem } from "../ui";
-import { TaskEditor } from "./TaskEditor";
+import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./TaskEditor";
 import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
@@ -29,9 +29,14 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [adding, setAdding] = useState(false);
-  const [menu, setMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    task: Task;
+    anchor: EditorAnchor;
+  } | null>(null);
   const confirm = useConfirm();
 
   const canWrite = atLeast(role, "write");
@@ -62,10 +67,14 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   const toggleComplete = (t: Task, completed: boolean) =>
     api.patch(`/tasks/${t.id}`, { completed }).then(load);
 
-  const menuItems = (task: Task): ContextMenuItem[] => {
+  const menuItems = (task: Task, anchor: EditorAnchor): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     if (canWrite)
-      items.push({ label: "Edit task", icon: <Pencil size={14} />, onClick: () => setEditingId(task.id) });
+      items.push({
+        label: "Edit task",
+        icon: <Pencil size={14} />,
+        onClick: () => setEditing({ task, anchor }),
+      });
     if (canWrite)
       items.push({
         label: "Delete",
@@ -80,31 +89,19 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   };
 
   const row = (t: Task) => {
-    if (editingId === t.id)
-      return (
-        <li key={t.id}>
-          <TaskEditor
-            task={t}
-            tags={tags}
-            members={members}
-            onDone={() => {
-              setEditingId(null);
-              load();
-            }}
-            onCancel={() => setEditingId(null)}
-          />
-        </li>
-      );
     const overdue = !t.completed_at && !!t.due_date && t.due_date < today();
     const dueToday = !t.completed_at && t.due_date === today();
     return (
       <li
         key={t.id}
-        onDoubleClick={() => canWrite && setEditingId(t.id)}
+        onDoubleClick={(e) =>
+          canWrite && setEditing({ task: t, anchor: anchorFromEvent(e) })
+        }
         onContextMenu={(e) => {
           e.preventDefault();
-          const items = menuItems(t);
-          if (items.length) setMenu({ x: e.clientX, y: e.clientY, task: t });
+          const anchor = anchorFromEvent(e);
+          if (menuItems(t, anchor).length)
+            setMenu({ x: e.clientX, y: e.clientY, task: t, anchor });
         }}
         className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
       >
@@ -177,7 +174,26 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
       </CompletedSection>
 
       {menu && (
-        <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.task)} onClose={() => setMenu(null)} />
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems(menu.task, menu.anchor)}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {editing && (
+        <TaskEditor
+          task={editing.task}
+          anchor={editing.anchor}
+          tags={tags}
+          members={members}
+          onDone={() => {
+            setEditing(null);
+            load();
+          }}
+          onCancel={() => setEditing(null)}
+        />
       )}
     </div>
   );

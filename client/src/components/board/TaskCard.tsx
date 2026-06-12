@@ -8,7 +8,7 @@ interface TaskCardProps {
   tags?: TagDef[];
   isDragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
-  onDoubleClick: () => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 

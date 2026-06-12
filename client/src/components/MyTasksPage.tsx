@@ -3,7 +3,7 @@ import { CalendarDays, Flag, Plus } from "lucide-react";
 import { api } from "../lib/api";
 import { parseTags, type Project, type Task } from "../lib/types";
 import { Badge, Checkbox, priorityTone } from "./ui";
-import { TaskEditor } from "./board/TaskEditor";
+import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./board/TaskEditor";
 import { QuickAddTask } from "./board/QuickAddTask";
 import { CompletedSection } from "./board/CompletedSection";
 import { AvatarStack } from "./board/pickers";
@@ -25,7 +25,7 @@ export function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filter, setFilter] = useState<Filter>("open");
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(() => {
@@ -56,26 +56,15 @@ export function MyTasksPage() {
     api.patch(`/tasks/${t.id}`, { completed: done }).then(load);
 
   const row = (t: Task) => {
-    if (editingId === t.id)
-      return (
-        <li key={t.id}>
-          <TaskEditor
-            task={t}
-            onDone={() => {
-              setEditingId(null);
-              load();
-            }}
-            onCancel={() => setEditingId(null)}
-          />
-        </li>
-      );
     const overdue = !t.completed_at && !!t.due_date && t.due_date < today();
     const dueToday = !t.completed_at && t.due_date === today();
     const personal = t.column_id === null;
     return (
       <li
         key={t.id}
-        onDoubleClick={() => personal && setEditingId(t.id)}
+        onDoubleClick={(e) =>
+          personal && setEditing({ task: t, anchor: anchorFromEvent(e) })
+        }
         className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
       >
         <span onClick={(e) => e.stopPropagation()}>
@@ -157,6 +146,18 @@ export function MyTasksPage() {
       <CompletedSection count={completedBelow.length}>
         <ul className="flex flex-col gap-2">{completedBelow.map(row)}</ul>
       </CompletedSection>
+
+      {editing && (
+        <TaskEditor
+          task={editing.task}
+          anchor={editing.anchor}
+          onDone={() => {
+            setEditing(null);
+            load();
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

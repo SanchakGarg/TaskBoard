@@ -13,7 +13,7 @@ import {
 import { useBoardDrag } from "../../hooks/useDrag";
 import { Button, ContextMenu, Input, Tooltip, useConfirm, type ContextMenuItem } from "../ui";
 import { TaskCard } from "./TaskCard";
-import { TaskEditor } from "./TaskEditor";
+import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./TaskEditor";
 import { QuickAddTask } from "./QuickAddTask";
 import { SketchArrow } from "../../illustrations";
 
@@ -27,12 +27,17 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [addingTo, setAddingTo] = useState<number | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumn, setNewColumn] = useState("");
   const [search, setSearch] = useState("");
-  const [menu, setMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    task: Task;
+    anchor: EditorAnchor;
+  } | null>(null);
   const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: number } | null>(null);
   const confirm = useConfirm();
 
@@ -81,13 +86,17 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     );
   };
 
-  const menuItems = (task: Task): ContextMenuItem[] => {
+  const menuItems = (task: Task, anchor: EditorAnchor): ContextMenuItem[] => {
     const sorted = [...columns].sort((a, b) => a.position - b.position);
     const idx = sorted.findIndex((c) => c.id === task.column_id);
     const next = sorted[idx + 1];
     const items: ContextMenuItem[] = [];
     if (canWrite)
-      items.push({ label: "Edit task", icon: <Pencil size={14} />, onClick: () => setEditingId(task.id) });
+      items.push({
+        label: "Edit task",
+        icon: <Pencil size={14} />,
+        onClick: () => setEditing({ task, anchor }),
+      });
     if (doneColumn && task.column_id !== doneColumn.id && atLeast(role, "checker"))
       items.push({
         label: `Complete (move to ${doneColumn.name})`,
@@ -208,36 +217,23 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
               </header>
 
               <div className="-m-1 flex flex-col gap-2 overflow-y-auto p-1">
-                {colTasks.map((task) =>
-                  editingId === task.id ? (
-                    <TaskEditor
-                      key={task.id}
-                      task={task}
-                      tags={tags}
-                      members={members}
-                      onDone={() => {
-                        setEditingId(null);
-                        load();
-                      }}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  ) : (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      tags={tags}
-                      isDragging={dragging?.taskId === task.id}
-                      dragHandleProps={canWrite || role === "checker" ? dragProps(task.id, col.id) : {}}
-                      onDoubleClick={() => canWrite && setEditingId(task.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const items = menuItems(task);
-                        if (items.length) setMenu({ x: e.clientX, y: e.clientY, task });
-                      }}
-                    />
-                  )
-                )}
+                {colTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    tags={tags}
+                    isDragging={dragging?.taskId === task.id}
+                    dragHandleProps={canWrite || role === "checker" ? dragProps(task.id, col.id) : {}}
+                    onDoubleClick={(e) => canWrite && setEditing({ task, anchor: anchorFromEvent(e) })}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const anchor = anchorFromEvent(e);
+                      if (menuItems(task, anchor).length)
+                        setMenu({ x: e.clientX, y: e.clientY, task, anchor });
+                    }}
+                  />
+                ))}
               </div>
 
               {canWrite &&
@@ -302,7 +298,26 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
       </div>
 
       {menu && (
-        <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.task)} onClose={() => setMenu(null)} />
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems(menu.task, menu.anchor)}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {editing && (
+        <TaskEditor
+          task={editing.task}
+          anchor={editing.anchor}
+          tags={tags}
+          members={members}
+          onDone={() => {
+            setEditing(null);
+            load();
+          }}
+          onCancel={() => setEditing(null)}
+        />
       )}
 
       {colMenu && (

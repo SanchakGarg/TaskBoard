@@ -1,12 +1,25 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { parseTags, type Member, type Priority, type TagDef, type Task } from "../../lib/types";
 import { Button, DatePicker, Input, Textarea, useConfirm } from "../ui";
 import { AssigneePicker, PriorityPicker, TagPicker } from "./pickers";
 
+export interface EditorAnchor {
+  left: number;
+  top: number;
+  width: number;
+}
+
+export const anchorFromEvent = (e: React.MouseEvent): EditorAnchor => {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  return { left: rect.left, top: rect.top, width: rect.width };
+};
+
 interface TaskEditorProps {
   task: Task;
+  anchor: EditorAnchor;
   tags?: TagDef[];
   members?: Member[];
   canDelete?: boolean;
@@ -14,9 +27,11 @@ interface TaskEditorProps {
   onCancel: () => void;
 }
 
-// In-place expanding editor — replaces the old popup modal.
+// Expanding editor overlaid on top of the card — portaled so it can
+// spill outside the column instead of being clipped by it.
 export function TaskEditor({
   task,
+  anchor,
   tags = [],
   members = [],
   canDelete = true,
@@ -49,12 +64,20 @@ export function TaskEditor({
     onDone();
   };
 
-  return (
-    <div
-      className="anim-modal flex flex-col gap-2 rounded-lg border-2 border-pen-blue bg-paper p-3 shadow-card-lift"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.key === "Escape" && onCancel()}
-    >
+  // wide enough to be usable, clamped to the viewport
+  const width = Math.min(Math.max(anchor.width, 380), window.innerWidth - 16);
+  const left = Math.min(Math.max(8, anchor.left), window.innerWidth - width - 8);
+  const top = Math.min(Math.max(8, anchor.top), Math.max(8, window.innerHeight - 360));
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-40 bg-ink/10" onMouseDown={onCancel} />
+      <div
+        style={{ position: "fixed", left, top, width, zIndex: 50 }}
+        className="anim-modal flex max-h-[85vh] flex-col gap-2 overflow-y-auto rounded-lg border-2 border-pen-blue bg-paper p-3 shadow-card-lift"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+      >
       <Input
         autoFocus
         value={title}
@@ -90,6 +113,8 @@ export function TaskEditor({
           Save
         </Button>
       </div>
-    </div>
+      </div>
+    </>,
+    document.body
   );
 }

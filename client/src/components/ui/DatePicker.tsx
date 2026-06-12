@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -14,20 +15,44 @@ interface DatePickerProps {
 export function DatePicker({ value, onChange, compact = false }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const initial = value ? new Date(value + "T00:00:00") : new Date();
   const [month, setMonth] = useState({ y: initial.getFullYear(), m: initial.getMonth() });
+
+  const MENU_W = 224;
+  const MENU_H = 260;
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({
+      left: Math.min(rect.left, window.innerWidth - MENU_W - 8),
+      top: Math.min(rect.bottom + 4, window.innerHeight - MENU_H - 8),
+    });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onScroll = (e: Event) => {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
+    };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -61,8 +86,14 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
         )}
       </button>
 
-      {open && (
-        <div className="anim-modal absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border-2 border-ink bg-paper p-2 shadow-card-lift">
+      {open &&
+        pos &&
+        createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_W, zIndex: 60 }}
+          className="anim-modal rounded-lg border-2 border-ink bg-paper p-2 shadow-card-lift"
+        >
           <div className="mb-1 flex items-center justify-between">
             <button
               type="button"
@@ -111,7 +142,8 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

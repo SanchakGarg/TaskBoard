@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Check, Flag, Tag, UserPlus } from "lucide-react";
 import type { Assignee, Member, Priority, TagDef } from "../../lib/types";
 import { Avatar, Input } from "../ui";
 
 // ---------- shared popover scaffolding ----------
+// Rendered through a portal with fixed positioning so menus overlay
+// freely instead of being clipped by column overflow containers.
+
+const MENU_WIDTH = 224;
 
 function Popover({
   trigger,
@@ -16,29 +21,58 @@ function Popover({
   setOpen: (v: boolean) => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({
+      left: Math.min(rect.left, window.innerWidth - MENU_WIDTH - 8),
+      top: Math.min(rect.bottom + 4, window.innerHeight - 60),
+    });
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onScroll = (e: Event) => {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
+    };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, setOpen]);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={triggerRef} className="inline-block">
       {trigger}
-      {open && (
-        <div className="anim-modal absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border-2 border-ink bg-paper p-1.5 shadow-card-lift">
-          {children}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_WIDTH, zIndex: 60 }}
+            className="anim-modal max-h-72 overflow-y-auto rounded-lg border-2 border-ink bg-paper p-1.5 shadow-card-lift"
+          >
+            {children}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
