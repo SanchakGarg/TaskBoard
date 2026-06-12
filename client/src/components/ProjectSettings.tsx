@@ -72,11 +72,7 @@ export function ProjectSettings({ project, role, onClose, onSaved }: ProjectSett
         <Divider />
 
         <section>
-          <h3 className="font-hand mb-1 font-bold">Managers</h3>
-          <p className="mb-3 text-sm text-ink-soft">
-            Managers are CC'd when a task in this project passes its deadline without being
-            completed.
-          </p>
+          <h3 className="font-hand mb-2 font-bold">Managers</h3>
 
           {isAdmin && (
             <div className="relative mb-3">

@@ -28,7 +28,7 @@ interface Detail {
   color?: string;
 }
 
-function template(opts: {
+export function template(opts: {
   heading: string;
   intro: string;
   details?: Detail[];
@@ -167,7 +167,7 @@ export function sendDeadlinePassed(opts: {
       heading: "This task is overdue ⏰",
       intro: `<b>"${opts.taskTitle}"</b> in <b>${opts.projectName}</b> passed its deadline and hasn't been completed.`,
       details: [{ label: "Was due", value: opts.dueDate, color: "#c0533e" }],
-      note: "Please reply with a status update and set a new deadline on the board. Project managers are CC'd.",
+      note: "Please share a status update and set a new deadline on the board.",
       cta: { label: "Update the task", url: appUrl },
     }),
   });

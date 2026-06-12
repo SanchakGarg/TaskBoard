@@ -13,12 +13,28 @@ import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
 
+// view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/3
+const parseHash = (): View => {
+  const m = window.location.hash.match(/^#\/board\/(\d+)$/);
+  if (m) return { kind: "board", projectId: Number(m[1]) };
+  if (window.location.hash === "#/dashboard") return { kind: "dashboard" };
+  return { kind: "mytasks" };
+};
+
+const hashFor = (v: View) =>
+  v.kind === "board" ? `#/board/${v.projectId}` : `#/${v.kind}`;
+
 export function App() {
   const { user, loading } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [view, setView] = useState<View>({ kind: "mytasks" });
+  const [view, setViewState] = useState<View>(parseHash);
   const [activeWs, setActiveWs] = useState<number | null>(null);
+
+  const setView = (v: View) => {
+    setViewState(v);
+    window.history.replaceState(null, "", hashFor(v));
+  };
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile sidebar
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
@@ -38,6 +54,15 @@ export function App() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // after a reload onto a board, point the tab strip at that board's workspace
+  useEffect(() => {
+    if (view.kind === "board") {
+      const ws = projects.find((p) => p.id === view.projectId)?.workspace_id;
+      if (ws) setActiveWs(ws);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects]);
 
   if (loading) return <div className="graph-paper min-h-screen" />;
   if (!user) return <Login />;
@@ -150,11 +175,13 @@ export function App() {
             <MyTasksPage />
           ) : view.kind === "dashboard" ? (
             <Dashboard />
-          ) : currentProject?.view_type === "list" ? (
-            <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-          ) : (
-            <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-          )}
+          ) : currentProject ? (
+            currentProject.view_type === "list" ? (
+              <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+            ) : (
+              <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+            )
+          ) : null}
         </main>
       </div>
 

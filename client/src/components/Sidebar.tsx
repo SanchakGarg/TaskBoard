@@ -251,17 +251,28 @@ export function Sidebar({
                         active={view.kind === "board" && view.projectId === p.id}
                         onClick={() => onNavigate({ kind: "board", projectId: p.id })}
                       />
-                      {!collapsed && ws.role === "admin" && (
-                        <button
-                          aria-label={`Delete ${p.name}`}
-                          onClick={async () => {
-                            if (await confirm(`Delete project "${p.name}" and all its tasks?`))
-                              onDeleteProject(p.id);
-                          }}
-                          className="anim-hover absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-1 text-ink-soft opacity-0 hover:text-pen-red group-hover/project:opacity-100"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                      {!collapsed && (
+                        <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center opacity-0 group-hover/project:opacity-100">
+                          <button
+                            aria-label={`Settings for ${p.name}`}
+                            onClick={() => onOpenProjectSettings(p)}
+                            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-ink"
+                          >
+                            <Settings size={13} />
+                          </button>
+                          {ws.role === "admin" && (
+                            <button
+                              aria-label={`Delete ${p.name}`}
+                              onClick={async () => {
+                                if (await confirm(`Delete project "${p.name}" and all its tasks?`))
+                                  onDeleteProject(p.id);
+                              }}
+                              className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </span>
                       )}
                     </div>
                   ))}
