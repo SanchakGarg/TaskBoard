@@ -64,6 +64,8 @@ export interface WidgetInstance {
   id: string;
   type: string;
   collapsed?: boolean;
+  height?: number; // px height of widget body; undefined = auto
+  cols?: number; // 1-3 column span
 }
 
 export const parseTags = (tags: string): string[] => {

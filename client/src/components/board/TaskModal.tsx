@@ -25,6 +25,8 @@ export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [savedTags, setSavedTags] = useState<string[]>([]);
+  const [tagFocus, setTagFocus] = useState(false);
 
   useEffect(() => {
     if (!task) return;
@@ -35,6 +37,7 @@ export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
     setTags(parseTags(task.tags));
     setCompleted(!!task.completed_at);
     setTagInput("");
+    api.get<string[]>("/tags").then(setSavedTags);
   }, [task]);
 
   if (!task) return null;
@@ -57,11 +60,15 @@ export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
     onChanged();
   };
 
-  const addTag = () => {
-    const t = tagInput.trim();
+  const addTag = (value = tagInput) => {
+    const t = value.trim();
     if (t && !tags.includes(t)) setTags([...tags, t]);
     setTagInput("");
   };
+
+  const suggestions = savedTags.filter(
+    (t) => !tags.includes(t) && t.toLowerCase().includes(tagInput.trim().toLowerCase())
+  );
 
   return (
     <Modal open onClose={onClose} title="Task" wide>
@@ -93,18 +100,39 @@ export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
                 <Badge tone="blue">{t} ✕</Badge>
               </button>
             ))}
-            <Input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-              placeholder="Add tag, press Enter"
-              className="!w-44"
-            />
+            <span className="relative">
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onFocus={() => setTagFocus(true)}
+                onBlur={() => setTimeout(() => setTagFocus(false), 150)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="Add tag, press Enter"
+                className="!w-44"
+              />
+              {tagFocus && suggestions.length > 0 && (
+                <span className="anim-modal absolute left-0 top-full z-20 mt-1 flex max-h-36 w-44 flex-col overflow-y-auto rounded-lg border-2 border-ink bg-paper shadow-card">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addTag(s);
+                      }}
+                      className="anim-hover cursor-pointer px-3 py-1.5 text-left text-sm hover:bg-paper-dark"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </span>
+              )}
+            </span>
           </div>
         </div>
 

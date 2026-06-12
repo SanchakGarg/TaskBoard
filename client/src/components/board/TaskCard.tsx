@@ -7,19 +7,27 @@ interface TaskCardProps {
   isDragging: boolean;
   dragHandleProps: Record<string, unknown>;
   onClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
 const isOverdue = (due: string | null) =>
   !!due && new Date(due + "T23:59:59") < new Date();
 
-export function TaskCard({ task, isDragging, dragHandleProps, onClick }: TaskCardProps) {
+export function TaskCard({
+  task,
+  isDragging,
+  dragHandleProps,
+  onClick,
+  onContextMenu,
+}: TaskCardProps) {
   const tags = parseTags(task.tags);
 
   return (
     <div
       {...dragHandleProps}
       onClick={onClick}
-      className={`anim-lift cursor-pointer rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
+      onContextMenu={onContextMenu}
+      className={`anim-lift-card cursor-pointer rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
     >
       <p className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{task.title}</p>
 

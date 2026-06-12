@@ -223,6 +223,26 @@ apiRouter.get("/tasks/mine", (req, res) => {
   res.json(rows);
 });
 
+apiRouter.get("/tags", (req, res) => {
+  const rows = db
+    .query(
+      `SELECT t.tags FROM tasks t
+       JOIN columns c ON c.id = t.column_id
+       JOIN projects p ON p.id = c.project_id
+       WHERE p.owner_id = ?`
+    )
+    .all(user(req).id) as { tags: string }[];
+  const all = new Set<string>();
+  for (const row of rows) {
+    try {
+      for (const tag of JSON.parse(row.tags)) if (typeof tag === "string") all.add(tag);
+    } catch {
+      /* malformed tags — skip */
+    }
+  }
+  res.json([...all].sort());
+});
+
 // ---------- milestones ----------
 
 apiRouter.get("/projects/:id/milestones", (req, res) => {

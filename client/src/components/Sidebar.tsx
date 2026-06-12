@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { LayoutDashboard, KanbanSquare, Plus, Trash2, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, ListChecks, KanbanSquare, Plus, Trash2, ChevronLeft } from "lucide-react";
 import { Button, Divider, Input, Modal, Tooltip } from "./ui";
 import { Notebook } from "../illustrations";
 import type { Project } from "../lib/types";
 
-export type View = { kind: "dashboard" } | { kind: "board"; projectId: number };
+export type View =
+  | { kind: "mytasks" }
+  | { kind: "dashboard" }
+  | { kind: "board"; projectId: number };
 
 interface SidebarProps {
   projects: Project[];
@@ -41,13 +44,13 @@ export function Sidebar({
       <aside
         className={`anim-sidebar flex h-screen shrink-0 flex-col border-r-2 border-ink/20 bg-paper-dark/60 backdrop-blur ${collapsed ? "w-14" : "w-60"}`}
       >
-        <div className="flex items-center gap-2 p-3">
+        <div className={`flex gap-2 p-3 ${collapsed ? "flex-col items-center" : "items-center"}`}>
           <Notebook size={28} className="shrink-0 text-pen-blue" />
           {!collapsed && <span className="font-hand text-lg font-bold">Taskboard</span>}
           <button
             onClick={onToggle}
             aria-label="Toggle sidebar"
-            className="anim-hover ml-auto cursor-pointer rounded-md p-1 text-ink-soft hover:bg-paper hover:text-ink"
+            className={`anim-hover cursor-pointer rounded-md p-1 text-ink-soft hover:bg-paper hover:text-ink ${collapsed ? "" : "ml-auto"}`}
           >
             <ChevronLeft
               size={16}
@@ -57,6 +60,13 @@ export function Sidebar({
         </div>
 
         <nav className="flex flex-col gap-1 px-2">
+          <NavItem
+            icon={<ListChecks size={18} />}
+            label="My Tasks"
+            collapsed={collapsed}
+            active={view.kind === "mytasks"}
+            onClick={() => onNavigate({ kind: "mytasks" })}
+          />
           <NavItem
             icon={<LayoutDashboard size={18} />}
             label="Dashboard"

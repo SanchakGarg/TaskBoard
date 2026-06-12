@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Pencil, Plus, Search, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../lib/api";
-import type { Column, Task } from "../../lib/types";
+import { parseTags, type Column, type Task } from "../../lib/types";
 import { useBoardDrag } from "../../hooks/useDrag";
-import { Button, Input } from "../ui";
+import { Button, ContextMenu, Input, type ContextMenuItem } from "../ui";
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { SketchArrow } from "../../illustrations";
@@ -16,6 +16,8 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
   const [newTitle, setNewTitle] = useState("");
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumn, setNewColumn] = useState("");
+  const [search, setSearch] = useState("");
+  const [menu, setMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
 
   const load = useCallback(async () => {
     const board = await api.get<{ columns: Column[]; tasks: Task[] }>(
@@ -64,11 +66,76 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
     load();
   };
 
+  const matches = (t: Task) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      t.title.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      parseTags(t.tags).some((tag) => tag.toLowerCase().includes(q))
+    );
+  };
+
+  const menuItems = (task: Task): ContextMenuItem[] => {
+    const sorted = [...columns].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex((c) => c.id === task.column_id);
+    const next = sorted[idx + 1];
+    const items: ContextMenuItem[] = [
+      { label: "Edit task", icon: <Pencil size={14} />, onClick: () => setSelected(task) },
+      {
+        label: task.completed_at ? "Reopen" : "Mark complete",
+        icon: task.completed_at ? <Undo2 size={14} /> : <CheckCircle2 size={14} />,
+        onClick: () =>
+          api.patch(`/tasks/${task.id}`, { completed: !task.completed_at }).then(load),
+      },
+    ];
+    if (next) {
+      items.push({
+        label: `Move to ${next.name}`,
+        icon: <ArrowRight size={14} />,
+        onClick: () =>
+          api
+            .patch(`/tasks/${task.id}/move`, {
+              columnId: next.id,
+              position: tasks.filter((t) => t.column_id === next.id).length,
+            })
+            .then(load),
+      });
+    }
+    items.push({
+      label: "Delete",
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onClick: () => {
+        if (confirm(`Delete task "${task.title}"?`)) api.delete(`/tasks/${task.id}`).then(load);
+      },
+    });
+    return items;
+  };
+
   return (
-    <div className="flex h-full gap-4 overflow-x-auto p-5">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 px-5 pt-4">
+        <div className="relative w-72">
+          <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-soft" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tasks, tags…"
+            className="!py-1.5 !pl-8 text-sm"
+          />
+        </div>
+        {search && (
+          <span className="text-sm text-ink-soft">
+            {tasks.filter(matches).length} match{tasks.filter(matches).length === 1 ? "" : "es"}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 gap-4 overflow-x-auto p-5">
       {columns.map((col) => {
         const colTasks = tasks
-          .filter((t) => t.column_id === col.id)
+          .filter((t) => t.column_id === col.id && matches(t))
           .sort((a, b) => a.position - b.position);
         return (
           <section
@@ -96,7 +163,7 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
               </button>
             </header>
 
-            <div className="flex flex-col gap-2 overflow-y-auto">
+            <div className="-m-1 flex flex-col gap-2 overflow-y-auto p-1">
               {colTasks.map((task) => (
                 <TaskCard
                   key={task.id}
@@ -104,6 +171,10 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
                   isDragging={dragging?.taskId === task.id}
                   dragHandleProps={dragProps(task.id, col.id)}
                   onClick={() => setSelected(task)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenu({ x: e.clientX, y: e.clientY, task });
+                  }}
                 />
               ))}
             </div>
@@ -178,6 +249,17 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
           </div>
         )}
       </div>
+
+      </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems(menu.task)}
+          onClose={() => setMenu(null)}
+        />
+      )}
 
       <TaskModal
         task={selected}

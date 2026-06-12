@@ -8,3 +8,4 @@ export { Checkbox } from "./Checkbox";
 export { Badge, priorityTone } from "./Badge";
 export { Avatar } from "./Avatar";
 export { Tooltip } from "./Tooltip";
+export { ContextMenu, type ContextMenuItem } from "./ContextMenu";

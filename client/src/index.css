@@ -19,6 +19,25 @@
   --shadow-card-lift: 4px 8px 0 rgba(45, 42, 38, 0.18);
 }
 
+/* ---------- dark theme: override the tokens, everything follows ---------- */
+.dark {
+  --color-paper: #211e1b;
+  --color-paper-dark: #2c2825;
+  --color-ink: #e8e2d6;
+  --color-ink-soft: #a59c8d;
+  --color-grid: #2b3038;
+  --color-pen-blue: #7da7e0;
+  --color-pen-red: #e08a76;
+  --color-pen-green: #8fbf9f;
+  --color-pen-amber: #ddb06a;
+  --color-sticky: #4d4628;
+
+  --shadow-card: 2px 3px 0 rgba(0, 0, 0, 0.45);
+  --shadow-card-lift: 4px 8px 0 rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
 /* ---------- graph paper background, no images ---------- */
 .graph-paper {
   background-color: var(--color-paper);
@@ -42,6 +61,15 @@
 }
 .anim-lift:hover {
   transform: translateY(-4px) rotate(-0.4deg);
+  box-shadow: var(--shadow-card-lift);
+}
+
+/* gentler lift for cards inside scroll containers — no rotation, small rise */
+.anim-lift-card {
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+.anim-lift-card:hover {
+  transform: translateY(-2px);
   box-shadow: var(--shadow-card-lift);
 }
 
