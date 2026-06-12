@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Plus } from "lucide-react";
 import { api } from "../lib/api";
 import { parseTags, type Project, type Task } from "../lib/types";
-import { Badge, Checkbox, priorityTone } from "./ui";
+import { Badge, Checkbox, ContextMenu, priorityTone } from "./ui";
 import { TaskModal } from "./board/TaskModal";
 import { QuickAddTask } from "./board/QuickAddTask";
 import { CompletedSection } from "./board/CompletedSection";
@@ -26,6 +26,7 @@ export function MyTasksPage() {
   const [filter, setFilter] = useState<Filter>("open");
   const [selected, setSelected] = useState<Task | null>(null);
   const [adding, setAdding] = useState(false);
+  const [pageMenu, setPageMenu] = useState<{ x: number; y: number } | null>(null);
 
   const load = useCallback(() => {
     api.get<Task[]>("/tasks/mine").then(setTasks);
@@ -95,7 +96,13 @@ export function MyTasksPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
+    <div
+      className="mx-auto min-h-full max-w-3xl p-5"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setPageMenu({ x: e.clientX, y: e.clientY });
+      }}
+    >
       <div className="mb-4 flex flex-wrap gap-1.5">
         {filters.map((f) => (
           <button
@@ -140,6 +147,15 @@ export function MyTasksPage() {
       <CompletedSection count={completedBelow.length}>
         <ul className="flex flex-col gap-2">{completedBelow.map(row)}</ul>
       </CompletedSection>
+
+      {pageMenu && (
+        <ContextMenu
+          x={pageMenu.x}
+          y={pageMenu.y}
+          items={[{ label: "Add task", icon: <Plus size={14} />, onClick: () => setAdding(true) }]}
+          onClose={() => setPageMenu(null)}
+        />
+      )}
 
       <TaskModal
         task={selected}

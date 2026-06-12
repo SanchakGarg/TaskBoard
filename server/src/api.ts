@@ -11,6 +11,37 @@ const bad = (res: Response, msg: string) => res.status(400).json({ error: msg })
 const str = (v: unknown, max = 2000): string | null =>
   typeof v === "string" && v.length <= max ? v : null;
 
+// ---------- workspaces ----------
+
+apiRouter.get("/workspaces", (req, res) => {
+  res.json(
+    db
+      .query("SELECT * FROM workspaces WHERE owner_id = ? ORDER BY position, created_at")
+      .all(user(req).id)
+  );
+});
+
+apiRouter.post("/workspaces", (req, res) => {
+  const name = str(req.body?.name, 100)?.trim();
+  if (!name) return bad(res, "name required");
+  const next = db
+    .query("SELECT COALESCE(MAX(position) + 1, 0) AS p FROM workspaces WHERE owner_id = ?")
+    .get(user(req).id) as { p: number };
+  res.status(201).json(
+    db
+      .query("INSERT INTO workspaces (name, owner_id, position) VALUES (?, ?, ?) RETURNING *")
+      .get(name, user(req).id, next.p)
+  );
+});
+
+apiRouter.delete("/workspaces/:id", (req, res) => {
+  db.run("DELETE FROM workspaces WHERE id = ? AND owner_id = ?", [
+    Number(req.params.id),
+    user(req).id,
+  ]);
+  res.json({ ok: true });
+});
+
 // ---------- projects ----------
 
 apiRouter.get("/projects", (req, res) => {
@@ -23,17 +54,27 @@ apiRouter.get("/projects", (req, res) => {
 apiRouter.post("/projects", (req, res) => {
   const name = str(req.body?.name, 200)?.trim();
   if (!name) return bad(res, "name required");
+  const workspaceId = Number(req.body?.workspaceId);
+  const ownsWorkspace = db
+    .query("SELECT 1 FROM workspaces WHERE id = ? AND owner_id = ?")
+    .get(workspaceId, user(req).id);
+  if (!ownsWorkspace) return res.status(404).json({ error: "workspace not found" });
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
   const nextPos = db
     .query("SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE owner_id = ?")
     .get(user(req).id) as { p: number };
   const project = db
     .query(
-      "INSERT INTO projects (name, description, owner_id, view_type, position) VALUES (?, ?, ?, ?, ?) RETURNING *"
+      "INSERT INTO projects (name, description, owner_id, workspace_id, view_type, position) VALUES (?, ?, ?, ?, ?, ?) RETURNING *"
     )
-    .get(name, str(req.body?.description) ?? "", user(req).id, viewType, nextPos.p) as {
-    id: number;
-  };
+    .get(
+      name,
+      str(req.body?.description) ?? "",
+      user(req).id,
+      workspaceId,
+      viewType,
+      nextPos.p
+    ) as { id: number };
   const defaults = viewType === "list" ? ["Tasks"] : ["Todo", "In Progress", "Done"];
   defaults.forEach((col, i) =>
     db.run("INSERT INTO columns (project_id, name, position) VALUES (?, ?, ?)", [
@@ -177,7 +218,7 @@ apiRouter.post("/tasks", (req, res) => {
       str(req.body?.description, 10000) ?? "",
       ["low", "medium", "high", "urgent"].includes(req.body?.priority)
         ? req.body.priority
-        : "medium",
+        : "low",
       str(req.body?.dueDate, 30),
       JSON.stringify(Array.isArray(req.body?.tags) ? req.body.tags.slice(0, 20) : []),
       next.p,

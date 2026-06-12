@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { parseTags, type Column, type Task } from "../../lib/types";
-import { Badge, Checkbox, ContextMenu, priorityTone, type ContextMenuItem } from "../ui";
+import { Badge, Checkbox, ContextMenu, priorityTone, useConfirm, type ContextMenuItem } from "../ui";
 import { TaskModal } from "./TaskModal";
 import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
@@ -16,6 +16,8 @@ export function ListBoard({ projectId }: { projectId: number }) {
   const [selected, setSelected] = useState<Task | null>(null);
   const [adding, setAdding] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  const [pageMenu, setPageMenu] = useState<{ x: number; y: number } | null>(null);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     const board = await api.get<{ columns: Column[]; tasks: Task[] }>(
@@ -48,8 +50,9 @@ export function ListBoard({ projectId }: { projectId: number }) {
       label: "Delete",
       icon: <Trash2 size={14} />,
       danger: true,
-      onClick: () => {
-        if (confirm(`Delete task "${task.title}"?`)) api.delete(`/tasks/${task.id}`).then(load);
+      onClick: async () => {
+        if (await confirm(`Delete task "${task.title}"?`))
+          api.delete(`/tasks/${task.id}`).then(load);
       },
     },
   ];
@@ -62,6 +65,7 @@ export function ListBoard({ projectId }: { projectId: number }) {
         onClick={() => setSelected(t)}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setMenu({ x: e.clientX, y: e.clientY, task: t });
         }}
         className="anim-lift-card flex cursor-pointer items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
@@ -93,7 +97,13 @@ export function ListBoard({ projectId }: { projectId: number }) {
   };
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
+    <div
+      className="mx-auto min-h-full max-w-3xl p-5"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setPageMenu({ x: e.clientX, y: e.clientY });
+      }}
+    >
       {adding && listColumn ? (
         <div className="mb-3">
           <QuickAddTask
@@ -127,6 +137,15 @@ export function ListBoard({ projectId }: { projectId: number }) {
 
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.task)} onClose={() => setMenu(null)} />
+      )}
+
+      {pageMenu && (
+        <ContextMenu
+          x={pageMenu.x}
+          y={pageMenu.y}
+          items={[{ label: "Add task", icon: <Plus size={14} />, onClick: () => setAdding(true) }]}
+          onClose={() => setPageMenu(null)}
+        />
       )}
 
       <TaskModal

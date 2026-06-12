@@ -9,3 +9,4 @@ export { Badge, priorityTone } from "./Badge";
 export { Avatar } from "./Avatar";
 export { Tooltip } from "./Tooltip";
 export { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+export { ConfirmProvider, useConfirm } from "./Confirm";

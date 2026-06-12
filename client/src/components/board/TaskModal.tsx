@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { parseTags, type Priority, type Task } from "../../lib/types";
-import { Badge, Button, Checkbox, Divider, Dropdown, Input, Modal, Textarea } from "../ui";
+import { Badge, Button, Checkbox, Divider, Dropdown, Input, Modal, Textarea, useConfirm } from "../ui";
 
 const priorityOptions: { value: Priority; label: string }[] = [
   { value: "low", label: "Low" },
@@ -18,6 +18,7 @@ interface TaskModalProps {
 }
 
 export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
+  const confirm = useConfirm();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
@@ -55,7 +56,7 @@ export function TaskModal({ task, onClose, onChanged }: TaskModalProps) {
   };
 
   const remove = async () => {
-    if (!confirm(`Delete task "${task.title}"?`)) return;
+    if (!(await confirm(`Delete task "${task.title}"?`))) return;
     await api.delete(`/tasks/${task.id}`);
     onChanged();
   };

@@ -22,11 +22,20 @@ db.run(`
     UNIQUE (provider, subject)
   );
 
+  CREATE TABLE IF NOT EXISTS workspaces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
     view_type TEXT NOT NULL DEFAULT 'kanban' CHECK (view_type IN ('kanban','list')),
     position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -110,6 +119,26 @@ if (!hasColumn("projects", "view_type"))
   db.run("ALTER TABLE projects ADD COLUMN view_type TEXT NOT NULL DEFAULT 'kanban'");
 if (!hasColumn("projects", "position"))
   db.run("ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
+if (!hasColumn("projects", "workspace_id"))
+  db.run("ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE");
+
+// adopt orphan projects (created before workspaces) into a default workspace per owner
+const orphanOwners = db
+  .query<{ owner_id: number }, []>(
+    "SELECT DISTINCT owner_id FROM projects WHERE workspace_id IS NULL"
+  )
+  .all();
+for (const { owner_id } of orphanOwners) {
+  const ws = db
+    .query<{ id: number }, [number]>(
+      "INSERT INTO workspaces (name, owner_id) VALUES ('My Workspace', ?) RETURNING id"
+    )
+    .get(owner_id)!;
+  db.run("UPDATE projects SET workspace_id = ? WHERE owner_id = ? AND workspace_id IS NULL", [
+    ws.id,
+    owner_id,
+  ]);
+}
 
 // tasks.column_id used to be NOT NULL; personal tasks need it nullable.
 const columnIdNotNull = db

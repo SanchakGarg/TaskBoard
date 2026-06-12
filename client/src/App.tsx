@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./lib/api";
-import type { Project } from "./lib/types";
+import type { Project, Workspace } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
 import { Sidebar, type View } from "./components/Sidebar";
@@ -13,51 +13,94 @@ import { Tabs } from "./components/Tabs";
 
 export function App() {
   const { user, loading } = useAuth();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [view, setView] = useState<View>({ kind: "mytasks" });
+  const [activeWs, setActiveWs] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
 
-  const loadProjects = useCallback(() => {
-    if (user) api.get<Project[]>("/projects").then(setProjects);
+  const loadAll = useCallback(async () => {
+    if (!user) return;
+    const [ws, ps] = await Promise.all([
+      api.get<Workspace[]>("/workspaces"),
+      api.get<Project[]>("/projects"),
+    ]);
+    setWorkspaces(ws);
+    setProjects(ps);
+    setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
   }, [user]);
 
-  useEffect(loadProjects, [loadProjects]);
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   if (loading) return <div className="graph-paper min-h-screen" />;
   if (!user) return <Login />;
 
-  const createProject = async (name: string, viewType: "kanban" | "list") => {
-    const p = await api.post<Project>("/projects", { name, viewType });
-    await api.get<Project[]>("/projects").then(setProjects);
-    setView({ kind: "board", projectId: p.id });
+  const navigate = (v: View) => {
+    if (v.kind === "board") {
+      const ws = projects.find((p) => p.id === v.projectId)?.workspace_id;
+      if (ws) setActiveWs(ws);
+    }
+    setView(v);
   };
 
-  const reorderProjects = (ids: number[]) => {
-    setProjects((prev) =>
-      [...prev].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
-    );
-    api.patch("/projects/reorder", { ids });
+  const createWorkspace = async (name: string) => {
+    const ws = await api.post<Workspace>("/workspaces", { name });
+    await loadAll();
+    setActiveWs(ws.id);
+  };
+
+  const deleteWorkspace = async (id: number) => {
+    await api.delete(`/workspaces/${id}`);
+    if (view.kind === "board" && projects.find((p) => p.id === view.projectId)?.workspace_id === id)
+      setView({ kind: "mytasks" });
+    if (activeWs === id) setActiveWs(null);
+    await loadAll();
+  };
+
+  const createProject = async (
+    workspaceId: number,
+    name: string,
+    viewType: "kanban" | "list"
+  ) => {
+    const p = await api.post<Project>("/projects", { name, viewType, workspaceId });
+    await loadAll();
+    setActiveWs(workspaceId);
+    setView({ kind: "board", projectId: p.id });
   };
 
   const deleteProject = async (id: number) => {
     await api.delete(`/projects/${id}`);
     if (view.kind === "board" && view.projectId === id) setView({ kind: "mytasks" });
-    loadProjects();
+    loadAll();
   };
+
+  const reorderProjects = (ids: number[]) => {
+    setProjects((prev) => [...prev].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)));
+    api.patch("/projects/reorder", { ids });
+  };
+
+  const currentProject = view.kind === "board" ? projects.find((p) => p.id === view.projectId) : undefined;
 
   const title =
     view.kind === "mytasks"
       ? "My Tasks"
       : view.kind === "dashboard"
         ? "Dashboard"
-        : projects.find((p) => p.id === view.projectId)?.name ?? "Board";
+        : currentProject?.name ?? "Board";
+
+  const tabProjects = projects.filter((p) => p.workspace_id === activeWs);
 
   return (
     <div className="graph-paper flex h-screen overflow-hidden">
       <Sidebar
+        workspaces={workspaces}
         projects={projects}
         view={view}
-        onNavigate={setView}
+        onNavigate={navigate}
+        onCreateWorkspace={createWorkspace}
+        onDeleteWorkspace={deleteWorkspace}
         onCreateProject={createProject}
         onDeleteProject={deleteProject}
         collapsed={collapsed}
@@ -67,9 +110,10 @@ export function App() {
         <TopBar title={title} />
         {view.kind !== "dashboard" && (
           <Tabs
-            projects={projects}
+            projects={tabProjects}
+            workspaceName={workspaces.find((w) => w.id === activeWs)?.name}
             view={view}
-            onNavigate={setView}
+            onNavigate={navigate}
             onReorder={reorderProjects}
           />
         )}
@@ -78,7 +122,7 @@ export function App() {
             <MyTasksPage />
           ) : view.kind === "dashboard" ? (
             <Dashboard />
-          ) : projects.find((p) => p.id === view.projectId)?.view_type === "list" ? (
+          ) : currentProject?.view_type === "list" ? (
             <ListBoard key={view.projectId} projectId={view.projectId} />
           ) : (
             <KanbanBoard key={view.projectId} projectId={view.projectId} />

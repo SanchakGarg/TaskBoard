@@ -5,13 +5,14 @@ import type { View } from "./Sidebar";
 
 interface TabsProps {
   projects: Project[];
+  workspaceName?: string;
   view: View;
   onNavigate: (view: View) => void;
   onReorder: (ids: number[]) => void;
 }
 
-// Project tab strip: My Tasks is pinned first, project tabs drag to reorder.
-export function Tabs({ projects, view, onNavigate, onReorder }: TabsProps) {
+// Tab strip for the active workspace: My Tasks pinned first, project tabs drag to reorder.
+export function Tabs({ projects, workspaceName, view, onNavigate, onReorder }: TabsProps) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<number | null>(null);
 
@@ -39,6 +40,12 @@ export function Tabs({ projects, view, onNavigate, onReorder }: TabsProps) {
         <ListChecks size={15} />
         My Tasks
       </button>
+
+      {workspaceName && projects.length > 0 && (
+        <span className="mb-1 ml-2 mr-1 shrink-0 self-center text-xs text-ink-soft/70">
+          {workspaceName} ·
+        </span>
+      )}
 
       {projects.map((p) => (
         <button

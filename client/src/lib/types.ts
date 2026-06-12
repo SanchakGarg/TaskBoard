@@ -6,10 +6,18 @@ export interface User {
   provider: string;
 }
 
+export interface Workspace {
+  id: number;
+  name: string;
+  position: number;
+  created_at: string;
+}
+
 export interface Project {
   id: number;
   name: string;
   description: string;
+  workspace_id: number;
   view_type: "kanban" | "list";
   position: number;
   created_at: string;

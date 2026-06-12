@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle2, Pencil, Plus, Search, Trash2, Undo2 } from "l
 import { api } from "../../lib/api";
 import { parseTags, type Column, type Task } from "../../lib/types";
 import { useBoardDrag } from "../../hooks/useDrag";
-import { Button, ContextMenu, Input, type ContextMenuItem } from "../ui";
+import { Button, ContextMenu, Input, useConfirm, type ContextMenuItem } from "../ui";
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { QuickAddTask } from "./QuickAddTask";
@@ -19,6 +19,8 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
   const [newColumn, setNewColumn] = useState("");
   const [search, setSearch] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: number } | null>(null);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     const board = await api.get<{ columns: Column[]; tasks: Task[] }>(
@@ -106,8 +108,9 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
       label: "Delete",
       icon: <Trash2 size={14} />,
       danger: true,
-      onClick: () => {
-        if (confirm(`Delete task "${task.title}"?`)) api.delete(`/tasks/${task.id}`).then(load);
+      onClick: async () => {
+        if (await confirm(`Delete task "${task.title}"?`))
+          api.delete(`/tasks/${task.id}`).then(load);
       },
     });
     return items;
@@ -143,6 +146,10 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
           <section
             key={col.id}
             {...dropProps(col.id, colTasks.length)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setColMenu({ x: e.clientX, y: e.clientY, columnId: col.id });
+            }}
             className={`flex h-fit max-h-full w-72 shrink-0 flex-col rounded-xl border-2 border-ink/30 bg-paper-dark/50 p-3 ${overColumn === col.id && dragging ? "drop-target" : ""}`}
           >
             <header className="group/col mb-3 flex items-center justify-between">
@@ -152,10 +159,10 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
               </h3>
               <button
                 aria-label={`Delete column ${col.name}`}
-                onClick={() => {
+                onClick={async () => {
                   if (
                     colTasks.length === 0 ||
-                    confirm(`Delete "${col.name}" and its ${colTasks.length} tasks?`)
+                    (await confirm(`Delete "${col.name}" and its ${colTasks.length} tasks?`))
                   )
                     api.delete(`/columns/${col.id}`).then(load);
                 }}
@@ -175,6 +182,7 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
                   onClick={() => setSelected(task)}
                   onContextMenu={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     setMenu({ x: e.clientX, y: e.clientY, task });
                   }}
                 />
@@ -260,6 +268,21 @@ export function KanbanBoard({ projectId }: { projectId: number }) {
           y={menu.y}
           items={menuItems(menu.task)}
           onClose={() => setMenu(null)}
+        />
+      )}
+
+      {colMenu && (
+        <ContextMenu
+          x={colMenu.x}
+          y={colMenu.y}
+          items={[
+            {
+              label: "Add task",
+              icon: <Plus size={14} />,
+              onClick: () => setAddingTo(colMenu.columnId),
+            },
+          ]}
+          onClose={() => setColMenu(null)}
         />
       )}
 

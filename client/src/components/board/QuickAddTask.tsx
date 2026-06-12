@@ -1,17 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Plus, Tag } from "lucide-react";
+import { CalendarDays, Flag, Plus, Tag } from "lucide-react";
 import { api } from "../../lib/api";
+import type { Priority } from "../../lib/types";
 import { Badge, Button, Input } from "../ui";
 
 interface QuickAddTaskProps {
-  onCreate: (data: { title: string; dueDate?: string; tags: string[] }) => Promise<void>;
+  onCreate: (data: {
+    title: string;
+    dueDate?: string;
+    tags: string[];
+    priority: Priority;
+  }) => Promise<void>;
   onCancel: () => void;
 }
+
+const priorityOrder: Priority[] = ["low", "medium", "high", "urgent"];
+const priorityStyle: Record<Priority, string> = {
+  low: "border-ink-soft/40 text-ink-soft",
+  medium: "border-pen-blue/60 text-pen-blue",
+  high: "border-pen-amber/60 text-pen-amber",
+  urgent: "border-pen-red/60 text-pen-red",
+};
 
 export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [showDate, setShowDate] = useState(false);
+  const [priority, setPriority] = useState<Priority>("low");
   const [tags, setTags] = useState<string[]>([]);
   const [tagOpen, setTagOpen] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -34,11 +49,12 @@ export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
   const submit = async () => {
     const t = title.trim();
     if (!t) return;
-    await onCreate({ title: t, dueDate: dueDate || undefined, tags });
+    await onCreate({ title: t, dueDate: dueDate || undefined, tags, priority });
     setTitle("");
     setDueDate("");
     setTags([]);
     setTagInput("");
+    setPriority("low");
   };
 
   const addTag = (value: string) => {
@@ -153,6 +169,17 @@ export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
         >
           <Plus size={11} />
           <CalendarDays size={11} />
+        </button>
+        <button
+          type="button"
+          title={`Priority: ${priority} (click to change)`}
+          onClick={() =>
+            setPriority(priorityOrder[(priorityOrder.indexOf(priority) + 1) % priorityOrder.length])
+          }
+          className={`anim-hover flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs capitalize ${priorityStyle[priority]}`}
+        >
+          <Flag size={11} />
+          {priority}
         </button>
         <Button type="submit" size="sm" className="ml-auto !px-3 !py-0.5" disabled={!title.trim()}>
           Add
