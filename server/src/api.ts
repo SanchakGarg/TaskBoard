@@ -185,6 +185,14 @@ apiRouter.post("/workspaces", (req, res) => {
   res.status(201).json({ ...ws, role: "admin" });
 });
 
+apiRouter.patch("/workspaces/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (getRole(user(req).id, id) !== "admin") return forbidden(res);
+  const name = str(req.body?.name, 100)?.trim();
+  if (!name) return bad(res, "name required");
+  res.json(db.query("UPDATE workspaces SET name = ? WHERE id = ? RETURNING *").get(name, id));
+});
+
 apiRouter.delete("/workspaces/:id", (req, res) => {
   const id = Number(req.params.id);
   if (getRole(user(req).id, id) !== "admin") return forbidden(res);
@@ -359,6 +367,16 @@ apiRouter.patch("/projects/reorder", (req, res) => {
   });
   apply();
   res.json({ ok: true });
+});
+
+apiRouter.patch("/projects/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const ws = projectWorkspace(id);
+  if (ws === null) return notFound(res);
+  if (getRole(user(req).id, ws) !== "admin") return forbidden(res);
+  const name = str(req.body?.name, 200)?.trim();
+  if (!name) return bad(res, "name required");
+  res.json(db.query("UPDATE projects SET name = ? WHERE id = ? RETURNING *").get(name, id));
 });
 
 apiRouter.delete("/projects/:id", (req, res) => {

@@ -47,8 +47,20 @@ app.use("/api", apiRouter);
 // serve built frontend in production
 const clientDist = resolve(import.meta.dir, "../../client/dist");
 if (existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(join(clientDist, "index.html")));
+  // index.html must never be cached or browsers keep serving stale bundles;
+  // hashed assets are safe to cache forever
+  app.use(
+    express.static(clientDist, {
+      setHeaders: (res, path) => {
+        if (path.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
+        else res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      },
+    })
+  );
+  app.get(/^\/(?!api).*/, (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(join(clientDist, "index.html"));
+  });
 }
 
 app.use(

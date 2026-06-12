@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Flag, Plus } from "lucide-react";
+import { Clock, Flag, Plus } from "lucide-react";
 import { api } from "../lib/api";
 import { parseTags, type Project, type Task } from "../lib/types";
 import { Badge, Checkbox, priorityTone } from "./ui";
@@ -56,8 +56,6 @@ export function MyTasksPage() {
     api.patch(`/tasks/${t.id}`, { completed: done }).then(load);
 
   const row = (t: Task) => {
-    const overdue = !t.completed_at && !!t.due_date && t.due_date < today();
-    const dueToday = !t.completed_at && t.due_date === today();
     const personal = t.column_id === null;
     return (
       <li
@@ -88,9 +86,9 @@ export function MyTasksPage() {
             </Badge>
           )}
           {t.due_date && (
-            <Badge tone={overdue ? "red" : dueToday ? "amber" : "neutral"}>
-              <CalendarDays size={11} />
-              {overdue ? `Overdue · ${t.due_date}` : t.due_date}
+            <Badge tone="red">
+              <Clock size={11} />
+              {t.due_date}
             </Badge>
           )}
           <AvatarStack assignees={t.assignees ?? []} />

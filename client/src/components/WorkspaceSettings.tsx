@@ -21,16 +21,25 @@ const roleHelp: Record<Role, string> = {
 interface WorkspaceSettingsProps {
   workspace: Workspace;
   onClose: () => void;
+  onSaved: () => void;
 }
 
-export function WorkspaceSettings({ workspace, onClose }: WorkspaceSettingsProps) {
+export function WorkspaceSettings({ workspace, onClose, onSaved }: WorkspaceSettingsProps) {
   const confirm = useConfirm();
   const [members, setMembers] = useState<Member[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("write");
   const [error, setError] = useState("");
+  const [name, setName] = useState(workspace.name);
   const isAdmin = workspace.role === "admin";
+
+  const rename = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === workspace.name) return;
+    await api.patch(`/workspaces/${workspace.id}`, { name: trimmed });
+    onSaved();
+  };
 
   const load = useCallback(() => {
     api.get<Member[]>(`/workspaces/${workspace.id}/members`).then(setMembers);
@@ -51,8 +60,28 @@ export function WorkspaceSettings({ workspace, onClose }: WorkspaceSettingsProps
   };
 
   return (
-    <Modal open onClose={onClose} title={`${workspace.name} — settings`} wide>
+    <Modal open onClose={onClose} title="Workspace settings" wide>
       <div className="flex flex-col gap-4">
+        {/* ---------- rename ---------- */}
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-sm text-ink-soft">Workspace name</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={!isAdmin}
+              maxLength={100}
+            />
+          </div>
+          {isAdmin && (
+            <Button size="sm" onClick={rename} disabled={!name.trim() || name.trim() === workspace.name}>
+              Rename
+            </Button>
+          )}
+        </div>
+
+        <Divider />
+
         {/* ---------- members ---------- */}
         <section>
           <h3 className="font-hand mb-2 font-bold">Members</h3>

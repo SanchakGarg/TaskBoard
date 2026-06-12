@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Flag, Pencil, Plus, Trash2 } from "lucide-react";
+import { Clock, Flag, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import {
   atLeast,
@@ -15,8 +15,6 @@ import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./TaskEditor";
 import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 interface ListBoardProps {
   projectId: number;
@@ -89,8 +87,6 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   };
 
   const row = (t: Task) => {
-    const overdue = !t.completed_at && !!t.due_date && t.due_date < today();
-    const dueToday = !t.completed_at && t.due_date === today();
     return (
       <li
         key={t.id}
@@ -126,9 +122,9 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
             </Badge>
           )}
           {t.due_date && (
-            <Badge tone={overdue ? "red" : dueToday ? "amber" : "neutral"}>
-              <CalendarDays size={11} />
-              {overdue ? `Overdue · ${t.due_date}` : t.due_date}
+            <Badge tone="red">
+              <Clock size={11} />
+              {t.due_date}
             </Badge>
           )}
           <AvatarStack assignees={t.assignees ?? []} />

@@ -91,6 +91,14 @@ const priorityColor: Record<Priority, string> = {
   urgent: "text-pen-red",
 };
 
+// the whole chip wears the priority color
+const priorityChip: Record<Priority, string> = {
+  low: "border-ink-soft/50 text-ink-soft bg-ink/5",
+  medium: "border-pen-blue/60 text-pen-blue bg-pen-blue/10",
+  high: "border-pen-amber/60 text-pen-amber bg-pen-amber/10",
+  urgent: "border-pen-red/60 text-pen-red bg-pen-red/10",
+};
+
 export function PriorityPicker({
   value,
   onChange,
@@ -104,8 +112,12 @@ export function PriorityPicker({
       open={open}
       setOpen={setOpen}
       trigger={
-        <button type="button" onClick={() => setOpen(!open)} className={chip(value !== "low")}>
-          <Flag size={11} className={priorityColor[value]} />
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className={`anim-hover flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium ${priorityChip[value]}`}
+        >
+          <Flag size={11} />
           {priorityLabel(value)}
         </button>
       }
