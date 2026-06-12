@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Member, Priority, TagDef } from "../../lib/types";
-import { Button, DatePicker, Input } from "../ui";
-import { AssigneePicker, PriorityPicker, TagPicker } from "./pickers";
+import { Avatar, Button, DatePicker, Input } from "../ui";
+import { AssigneePicker, PriorityPicker, Removable, TagBadge, TagPicker } from "./pickers";
 
 interface QuickAddTaskProps {
   onCreate: (data: {
@@ -24,6 +24,10 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [assignees, setAssignees] = useState<number[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // workspace tasks must be assigned to someone; personal tasks have no members
+  const requireAssignee = members.length > 0;
+  const canSubmit = !!title.trim() && (!requireAssignee || assignees.length > 0);
+
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!formRef.current?.contains(e.target as Node)) onCancel();
@@ -33,9 +37,14 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   }, [onCancel]);
 
   const submit = async () => {
-    const t = title.trim();
-    if (!t) return;
-    await onCreate({ title: t, dueDate: dueDate || undefined, tags: selectedTags, priority, assignees });
+    if (!canSubmit) return;
+    await onCreate({
+      title: title.trim(),
+      dueDate: dueDate || undefined,
+      tags: selectedTags,
+      priority,
+      assignees,
+    });
     setTitle("");
     setDueDate("");
     setSelectedTags([]);
@@ -61,17 +70,46 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
         className="!border-transparent !px-1 !py-1"
       />
 
-      <div className="flex flex-wrap items-center gap-1">
-        <TagPicker selected={selectedTags} onChange={setSelectedTags} available={tags} />
+      {/* calendar + priority above */}
+      <div className="flex items-center gap-1">
         <DatePicker value={dueDate} onChange={setDueDate} compact />
         <PriorityPicker value={priority} onChange={setPriority} />
-        {members.length > 0 && (
-          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
-        )}
-        <Button type="submit" size="sm" className="ml-auto !px-3 !py-0.5" disabled={!title.trim()}>
+        <Button type="submit" size="sm" className="ml-auto !px-3 !py-0.5" disabled={!canSubmit}>
           Add
         </Button>
       </div>
+
+      {/* tags row, pushed bottom right: chips with hover ✕, plus to add more */}
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {selectedTags.map((t) => (
+          <Removable key={t} onRemove={() => setSelectedTags(selectedTags.filter((x) => x !== t))}>
+            <TagBadge name={t} tags={tags} />
+          </Removable>
+        ))}
+        <TagPicker selected={selectedTags} onChange={setSelectedTags} available={tags} />
+      </div>
+
+      {/* assignees row below, same style */}
+      {members.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {assignees.map((id) => {
+            const m = members.find((x) => x.id === id);
+            if (!m) return null;
+            return (
+              <Removable key={id} onRemove={() => setAssignees(assignees.filter((x) => x !== id))}>
+                <span title={m.name}>
+                  <Avatar name={m.name} src={m.avatar_url || undefined} size={24} />
+                </span>
+              </Removable>
+            );
+          })}
+          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
+        </div>
+      )}
+
+      {requireAssignee && !!title.trim() && assignees.length === 0 && (
+        <p className="text-right text-xs text-pen-red">Assign at least one member</p>
+      )}
     </form>
   );
 }

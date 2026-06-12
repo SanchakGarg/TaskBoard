@@ -1,31 +1,18 @@
 import { useState } from "react";
 import { Zap } from "lucide-react";
 import { api } from "../../lib/api";
-import type { Column, Project } from "../../lib/types";
 import { Input } from "../ui";
 
-// One-click idea dumping: creates a task in the first column of your first project.
+// One-click idea dumping: creates a personal task (visible in My Tasks).
 export default function QuickCaptureWidget() {
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
-  const [error, setError] = useState("");
 
   const capture = async () => {
     const title = text.trim();
     if (!title) return;
-    const projects = await api.get<Project[]>("/projects");
-    if (!projects.length) {
-      setError("Create a project first.");
-      return;
-    }
-    const board = await api.get<{ columns: Column[] }>(`/projects/${projects[0].id}/board`);
-    if (!board.columns.length) {
-      setError("Your first project has no columns.");
-      return;
-    }
-    await api.post("/tasks", { columnId: board.columns[0].id, title });
+    await api.post("/tasks", { title });
     setText("");
-    setError("");
     setFlash(true);
     setTimeout(() => setFlash(false), 400);
   };
@@ -45,7 +32,7 @@ export default function QuickCaptureWidget() {
           placeholder="Type anything, press Enter…"
         />
       </div>
-      {error && <p className="mt-1 text-xs text-pen-red">{error}</p>}
+      <p className="mt-1 text-xs text-ink-soft">Lands in My Tasks as a personal task.</p>
     </form>
   );
 }

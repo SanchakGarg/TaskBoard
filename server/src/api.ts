@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { db, logActivity, type Task, type User } from "./db";
 import { requireAuth, type AuthedRequest } from "./auth";
+import { sendTaskAssigned, sendWorkspaceInvite } from "./mailer";
 
 export const apiRouter = Router();
 apiRouter.use(requireAuth);
@@ -133,6 +134,29 @@ const withAssignees = <T extends { id: number }>(tasks: T[]): (T & { assignees: 
   return tasks.map((t) => ({ ...t, assignees: map.get(t.id) ?? [] }));
 };
 
+const emailsOf = (userIds: number[]): string[] =>
+  userIds.length
+    ? (
+        db
+          .query(`SELECT email FROM users WHERE id IN (${userIds.map(() => "?").join(",")})`)
+          .all(...userIds) as { email: string }[]
+      ).map((u) => u.email)
+    : [];
+
+const memberIdsOnly = (workspaceId: number, ids: unknown): number[] =>
+  Array.isArray(ids)
+    ? [...new Set(ids.filter((n): n is number => typeof n === "number"))].filter(
+        (id) => getRole(id, workspaceId) !== null
+      )
+    : [];
+
+const projectName = (projectId: number | null): string =>
+  projectId === null
+    ? "Personal"
+    : ((db.query("SELECT name FROM projects WHERE id = ?").get(projectId) as {
+        name: string;
+      } | null)?.name ?? "a project");
+
 // ---------- workspaces ----------
 
 apiRouter.get("/workspaces", (req, res) => {
@@ -209,6 +233,13 @@ apiRouter.post("/workspaces/:id/members", (req, res) => {
      ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role`,
     [id, target.id, role]
   );
+  const ws = db.query("SELECT name FROM workspaces WHERE id = ?").get(id) as { name: string };
+  sendWorkspaceInvite({
+    to: email,
+    workspaceName: ws.name,
+    role,
+    invitedBy: user(req).name,
+  });
   res.status(201).json({ ok: true });
 });
 
@@ -339,6 +370,37 @@ apiRouter.delete("/projects/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- project managers ----------
+
+apiRouter.get("/projects/:id/managers", (req, res) => {
+  const projectId = Number(req.params.id);
+  const ws = projectWorkspace(projectId);
+  if (ws === null || !atLeast(getRole(user(req).id, ws), "read")) return notFound(res);
+  res.json(
+    db
+      .query(
+        `SELECT u.id, u.name, u.email, u.avatar_url FROM project_managers pm
+         JOIN users u ON u.id = pm.user_id WHERE pm.project_id = ? ORDER BY u.name`
+      )
+      .all(projectId)
+  );
+});
+
+apiRouter.put("/projects/:id/managers", (req, res) => {
+  const projectId = Number(req.params.id);
+  const ws = projectWorkspace(projectId);
+  if (ws === null) return notFound(res);
+  if (getRole(user(req).id, ws) !== "admin") return forbidden(res);
+  const ids = memberIdsOnly(ws, req.body?.userIds);
+  const apply = db.transaction(() => {
+    db.run("DELETE FROM project_managers WHERE project_id = ?", [projectId]);
+    for (const id of ids)
+      db.run("INSERT INTO project_managers (project_id, user_id) VALUES (?, ?)", [projectId, id]);
+  });
+  apply();
+  res.json({ ok: true });
+});
+
 // ---------- board ----------
 
 apiRouter.get("/projects/:id/board", (req, res) => {
@@ -417,12 +479,16 @@ apiRouter.post("/tasks", (req, res) => {
 
   let projectId: number | null = null;
   let workspaceId: number | null = null;
+  let assigneeIds: number[] = [];
   if (columnId !== null) {
     const ctx = columnWorkspace(columnId);
     if (!ctx) return notFound(res);
     if (!atLeast(getRole(user(req).id, ctx.workspace_id), "write")) return forbidden(res);
     projectId = ctx.project_id;
     workspaceId = ctx.workspace_id;
+    assigneeIds = memberIdsOnly(workspaceId, req.body?.assignees);
+    if (assigneeIds.length === 0)
+      return bad(res, "assign at least one workspace member to the task");
   }
 
   const tags: string[] = Array.isArray(req.body?.tags)
@@ -460,7 +526,20 @@ apiRouter.post("/tasks", (req, res) => {
       user(req).id
     ) as Task;
 
-  if (workspaceId !== null) setAssignees(task.id, workspaceId, req.body?.assignees);
+  if (workspaceId !== null) {
+    setAssignees(task.id, workspaceId, assigneeIds);
+    const notify = emailsOf(assigneeIds.filter((id) => id !== user(req).id));
+    if (notify.length)
+      sendTaskAssigned({
+        to: notify,
+        taskTitle: task.title,
+        description: task.description,
+        projectName: projectName(projectId),
+        dueDate: task.due_date,
+        priority: task.priority,
+        assignedBy: user(req).name,
+      });
+  }
   logActivity(user(req).id, projectId, "created task", title);
   res.status(201).json(withAssignees([task])[0]);
 });
@@ -502,8 +581,27 @@ apiRouter.patch("/tasks/:id", (req, res) => {
     )
     .get(title, description, priority, dueDate, tags, completedAt, existing.id) as Task;
 
-  if (existing.workspace_id !== null && Array.isArray(req.body?.assignees) && atLeast(role, "write"))
-    setAssignees(existing.id, existing.workspace_id, req.body.assignees);
+  if (
+    existing.workspace_id !== null &&
+    Array.isArray(req.body?.assignees) &&
+    atLeast(role, "write")
+  ) {
+    const before = new Set((assigneesFor([existing.id]).get(existing.id) ?? []).map((a) => a.id));
+    const after = memberIdsOnly(existing.workspace_id, req.body.assignees);
+    setAssignees(existing.id, existing.workspace_id, after);
+    const added = after.filter((id) => !before.has(id) && id !== user(req).id);
+    const notify = emailsOf(added);
+    if (notify.length)
+      sendTaskAssigned({
+        to: notify,
+        taskTitle: title,
+        description,
+        projectName: projectName(existing.project_id),
+        dueDate,
+        priority,
+        assignedBy: user(req).name,
+      });
+  }
 
   if (req.body?.completed === true && !existing.completed_at)
     logActivity(user(req).id, existing.project_id, "completed task", title);

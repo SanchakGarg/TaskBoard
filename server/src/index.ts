@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { config } from "./config";
 import { initAuth, authRouter } from "./auth";
 import { apiRouter } from "./api";
+import { startDeadlineWatcher } from "./deadlines";
 
 const app = express();
 app.disable("x-powered-by");
@@ -58,4 +59,5 @@ app.use(
 );
 
 await initAuth();
+startDeadlineWatcher();
 app.listen(config.port, () => console.log(`taskboard listening on :${config.port}`));

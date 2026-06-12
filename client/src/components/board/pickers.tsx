@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, Flag, Tag, UserPlus } from "lucide-react";
+import { Check, Flag, Plus, Tag, UserPlus } from "lucide-react";
 import type { Assignee, Member, Priority, TagDef } from "../../lib/types";
 import { Avatar, Input } from "../ui";
 
@@ -163,9 +163,14 @@ export function TagPicker({
       open={open}
       setOpen={setOpen}
       trigger={
-        <button type="button" onClick={() => setOpen(!open)} className={chip(selected.length > 0)}>
+        <button
+          type="button"
+          title="Add tags"
+          onClick={() => setOpen(!open)}
+          className={chip(false)}
+        >
+          <Plus size={11} />
           <Tag size={11} />
-          {selected.length ? `${selected.length} tag${selected.length > 1 ? "s" : ""}` : "Tags"}
         </button>
       }
     >
@@ -247,9 +252,14 @@ export function AssigneePicker({
       open={open}
       setOpen={setOpen}
       trigger={
-        <button type="button" onClick={() => setOpen(!open)} className={chip(selected.length > 0)}>
+        <button
+          type="button"
+          title="Assign members"
+          onClick={() => setOpen(!open)}
+          className={chip(false)}
+        >
+          <Plus size={11} />
           <UserPlus size={11} />
-          {selected.length ? selected.length : ""}
         </button>
       }
     >
@@ -275,6 +285,23 @@ export function AssigneePicker({
 }
 
 // ---------- display helpers ----------
+
+// chip with an ✕ that appears on hover
+export function Removable({ children, onRemove }: { children: ReactNode; onRemove: () => void }) {
+  return (
+    <span className="group/chip relative inline-flex">
+      {children}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Remove"
+        className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-ink bg-paper text-[9px] leading-none text-pen-red group-hover/chip:flex"
+      >
+        ✕
+      </button>
+    </span>
+  );
+}
 
 export function TagBadge({ name, tags }: { name: string; tags: TagDef[] }) {
   const def = tags.find((t) => t.name === name);

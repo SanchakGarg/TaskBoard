@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { parseTags, type Member, type Priority, type TagDef, type Task } from "../../lib/types";
-import { Button, DatePicker, Input, Textarea, useConfirm } from "../ui";
-import { AssigneePicker, PriorityPicker, TagPicker } from "./pickers";
+import { Avatar, Button, DatePicker, Input, Textarea, useConfirm } from "../ui";
+import { AssigneePicker, PriorityPicker, Removable, TagBadge, TagPicker } from "./pickers";
 
 export interface EditorAnchor {
   left: number;
@@ -92,14 +92,39 @@ export function TaskEditor({
         rows={3}
         className="!py-1 text-sm"
       />
-      <div className="flex flex-wrap items-center gap-1">
-        <TagPicker selected={selectedTags} onChange={setSelectedTags} available={tags} />
+      {/* calendar + priority above */}
+      <div className="flex items-center gap-1">
         <DatePicker value={dueDate} onChange={setDueDate} compact />
         <PriorityPicker value={priority} onChange={setPriority} />
-        {members.length > 0 && (
-          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
-        )}
       </div>
+
+      {/* tags row, bottom right */}
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {selectedTags.map((t) => (
+          <Removable key={t} onRemove={() => setSelectedTags(selectedTags.filter((x) => x !== t))}>
+            <TagBadge name={t} tags={tags} />
+          </Removable>
+        ))}
+        <TagPicker selected={selectedTags} onChange={setSelectedTags} available={tags} />
+      </div>
+
+      {/* assignees row below, same style */}
+      {members.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {assignees.map((id) => {
+            const m = members.find((x) => x.id === id);
+            if (!m) return null;
+            return (
+              <Removable key={id} onRemove={() => setAssignees(assignees.filter((x) => x !== id))}>
+                <span title={m.name}>
+                  <Avatar name={m.name} src={m.avatar_url || undefined} size={24} />
+                </span>
+              </Removable>
+            );
+          })}
+          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
+        </div>
+      )}
       <div className="flex items-center gap-2 pt-1">
         {canDelete && (
           <Button variant="danger" size="sm" onClick={remove} className="!px-2 !py-0.5">

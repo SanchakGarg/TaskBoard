@@ -62,6 +62,12 @@ db.run(`
     PRIMARY KEY (task_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS project_managers (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS columns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -201,6 +207,10 @@ if (columnIdNotNull?.nn) {
   })();
   db.run("PRAGMA foreign_keys = ON");
 }
+
+// runs after the rebuild so old databases get the column on the new table
+if (!hasColumn("tasks", "deadline_notified_for"))
+  db.run("ALTER TABLE tasks ADD COLUMN deadline_notified_for TEXT");
 
 export interface User {
   id: number;

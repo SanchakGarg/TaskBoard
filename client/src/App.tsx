@@ -11,6 +11,7 @@ import { ListBoard } from "./components/board/ListBoard";
 import { MyTasksPage } from "./components/MyTasksPage";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
+import { ProjectSettings } from "./components/ProjectSettings";
 
 export function App() {
   const { user, loading } = useAuth();
@@ -21,6 +22,7 @@ export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile sidebar
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
+  const [settingsProject, setSettingsProject] = useState<Project | null>(null);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
@@ -110,6 +112,10 @@ export function App() {
         setSettingsWs(ws);
         setDrawerOpen(false);
       }}
+      onOpenProjectSettings={(p) => {
+        setSettingsProject(p);
+        setDrawerOpen(false);
+      }}
       collapsed={collapsed}
       onToggle={() => setCollapsed((c) => !c)}
     />
@@ -153,6 +159,13 @@ export function App() {
       </div>
 
       {settingsWs && <WorkspaceSettings workspace={settingsWs} onClose={() => setSettingsWs(null)} />}
+      {settingsProject && (
+        <ProjectSettings
+          project={settingsProject}
+          role={workspaces.find((w) => w.id === settingsProject.workspace_id)?.role ?? "read"}
+          onClose={() => setSettingsProject(null)}
+        />
+      )}
     </div>
   );
 }

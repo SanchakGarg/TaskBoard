@@ -30,6 +30,7 @@ interface SidebarProps {
   onCreateProject: (workspaceId: number, name: string, viewType: "kanban" | "list") => Promise<void>;
   onDeleteProject: (id: number) => Promise<void>;
   onOpenSettings: (workspace: Workspace) => void;
+  onOpenProjectSettings: (project: Project) => void;
   collapsed: boolean;
   onToggle: () => void;
 }
@@ -44,6 +45,7 @@ export function Sidebar({
   onCreateProject,
   onDeleteProject,
   onOpenSettings,
+  onOpenProjectSettings,
   collapsed,
   onToggle,
 }: SidebarProps) {
@@ -213,7 +215,32 @@ export function Sidebar({
 
                 {(!closed || collapsed) &&
                   wsProjects.map((p) => (
-                    <div key={p.id} className="group/project relative">
+                    <div
+                      key={p.id}
+                      className="group/project relative"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const items: ContextMenuItem[] = [
+                          {
+                            label: "Project settings",
+                            icon: <Settings size={14} />,
+                            onClick: () => onOpenProjectSettings(p),
+                          },
+                        ];
+                        if (ws.role === "admin")
+                          items.push({
+                            label: "Delete project",
+                            icon: <Trash2 size={14} />,
+                            danger: true,
+                            onClick: async () => {
+                              if (await confirm(`Delete project "${p.name}" and all its tasks?`))
+                                onDeleteProject(p.id);
+                            },
+                          });
+                        setMenu({ x: e.clientX, y: e.clientY, items });
+                      }}
+                    >
                       <NavItem
                         icon={
                           p.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />
