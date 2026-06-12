@@ -1,60 +1,66 @@
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Flag } from "lucide-react";
 import { Badge, priorityTone } from "../ui";
-import { parseTags, type Task } from "../../lib/types";
+import { parseTags, type TagDef, type Task } from "../../lib/types";
+import { AvatarStack, TagBadge } from "./pickers";
 
 interface TaskCardProps {
   task: Task;
-  isDragging: boolean;
-  dragHandleProps: Record<string, unknown>;
-  onClick: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
+  tags?: TagDef[];
+  isDragging?: boolean;
+  dragHandleProps?: Record<string, unknown>;
+  onDoubleClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-const isOverdue = (due: string | null) =>
-  !!due && new Date(due + "T23:59:59") < new Date();
-
-// card tint follows priority
-const priorityCard: Record<Task["priority"], string> = {
-  urgent: "border-pen-red bg-pen-red/10",
-  high: "border-pen-amber bg-pen-amber/10",
-  medium: "border-ink/70 bg-paper",
-  low: "border-ink/35 bg-paper",
-};
+const today = () => new Date().toISOString().slice(0, 10);
 
 export function TaskCard({
   task,
-  isDragging,
-  dragHandleProps,
-  onClick,
+  tags = [],
+  isDragging = false,
+  dragHandleProps = {},
+  onDoubleClick,
   onContextMenu,
 }: TaskCardProps) {
-  const tags = parseTags(task.tags);
+  const taskTags = parseTags(task.tags);
+  const overdue = !task.completed_at && !!task.due_date && task.due_date < today();
+  const dueToday = !task.completed_at && task.due_date === today();
 
   return (
     <div
       {...dragHandleProps}
-      onClick={onClick}
+      onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
-      className={`anim-lift-card cursor-pointer rounded-lg border-2 p-3 shadow-card ${priorityCard[task.priority]} ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
+      className={`anim-lift-card cursor-pointer select-none rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
     >
+      {/* tags live top-right in their workspace colors */}
+      {taskTags.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap justify-end gap-1">
+          {taskTags.map((t) => (
+            <TagBadge key={t} name={t} tags={tags} />
+          ))}
+        </div>
+      )}
+
       <p className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{task.title}</p>
 
-      {(tags.length > 0 || task.due_date || task.priority !== "medium") && (
+      {(task.due_date || task.priority !== "low" || (task.assignees?.length ?? 0) > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {task.priority !== "medium" && (
-            <Badge tone={priorityTone[task.priority]}>{task.priority}</Badge>
+          {task.priority !== "low" && (
+            <Badge tone={priorityTone[task.priority]}>
+              <Flag size={10} />
+              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+            </Badge>
           )}
           {task.due_date && (
-            <Badge tone={isOverdue(task.due_date) && !task.completed_at ? "red" : "neutral"}>
+            <Badge tone={overdue ? "red" : dueToday ? "amber" : "neutral"}>
               <CalendarDays size={11} />
-              {task.due_date}
+              {overdue ? `Overdue · ${task.due_date}` : task.due_date}
             </Badge>
           )}
-          {tags.map((t) => (
-            <Badge key={t} tone="blue">
-              {t}
-            </Badge>
-          ))}
+          <span className="ml-auto">
+            <AvatarStack assignees={task.assignees ?? []} />
+          </span>
         </div>
       )}
     </div>

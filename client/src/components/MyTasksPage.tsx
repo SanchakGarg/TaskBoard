@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Flag, Plus } from "lucide-react";
 import { api } from "../lib/api";
 import { parseTags, type Project, type Task } from "../lib/types";
-import { Badge, Checkbox, ContextMenu, priorityTone } from "./ui";
-import { TaskModal } from "./board/TaskModal";
+import { Badge, Checkbox, priorityTone } from "./ui";
+import { TaskEditor } from "./board/TaskEditor";
 import { QuickAddTask } from "./board/QuickAddTask";
 import { CompletedSection } from "./board/CompletedSection";
+import { AvatarStack } from "./board/pickers";
 import { Coffee } from "../illustrations";
 
-type Filter = "open" | "today" | "overdue" | "done" | "all";
+type Filter = "open" | "today" | "overdue" | "all";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -16,17 +17,16 @@ const filters: { id: Filter; label: string }[] = [
   { id: "open", label: "Open" },
   { id: "today", label: "Due today" },
   { id: "overdue", label: "Overdue" },
-  { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
 
+// Personal tasks + tasks assigned to me, across all workspaces.
 export function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filter, setFilter] = useState<Filter>("open");
-  const [selected, setSelected] = useState<Task | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  const [pageMenu, setPageMenu] = useState<{ x: number; y: number } | null>(null);
 
   const load = useCallback(() => {
     api.get<Task[]>("/tasks/mine").then(setTasks);
@@ -45,26 +45,38 @@ export function MyTasksPage() {
         return !t.completed_at && t.due_date === today();
       case "overdue":
         return !t.completed_at && !!t.due_date && t.due_date < today();
-      case "done":
-        return !!t.completed_at;
       case "all":
         return true;
     }
   });
 
-  // completed tasks live in a collapsed dropdown at the bottom of the open view
   const completedBelow = filter === "open" ? tasks.filter((t) => t.completed_at) : [];
 
   const toggleComplete = (t: Task, done: boolean) =>
     api.patch(`/tasks/${t.id}`, { completed: done }).then(load);
 
   const row = (t: Task) => {
+    if (editingId === t.id)
+      return (
+        <li key={t.id}>
+          <TaskEditor
+            task={t}
+            onDone={() => {
+              setEditingId(null);
+              load();
+            }}
+            onCancel={() => setEditingId(null)}
+          />
+        </li>
+      );
     const overdue = !t.completed_at && !!t.due_date && t.due_date < today();
+    const dueToday = !t.completed_at && t.due_date === today();
+    const personal = t.column_id === null;
     return (
       <li
         key={t.id}
-        onClick={() => setSelected(t)}
-        className="anim-lift-card flex cursor-pointer items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
+        onDoubleClick={() => personal && setEditingId(t.id)}
+        className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
       >
         <span onClick={(e) => e.stopPropagation()}>
           <Checkbox checked={!!t.completed_at} onChange={(done) => toggleComplete(t, done)} />
@@ -80,29 +92,27 @@ export function MyTasksPage() {
                 {tag}
               </Badge>
             ))}
-          {t.priority !== "medium" && <Badge tone={priorityTone[t.priority]}>{t.priority}</Badge>}
-          {t.due_date && (
-            <Badge tone={overdue ? "red" : "neutral"}>
-              <CalendarDays size={11} />
-              {t.due_date}
+          {t.priority !== "low" && (
+            <Badge tone={priorityTone[t.priority]}>
+              <Flag size={10} />
+              {t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}
             </Badge>
           )}
-          <Badge tone={projectName(t) ? "green" : "neutral"}>
-            {projectName(t) ?? "Personal"}
-          </Badge>
+          {t.due_date && (
+            <Badge tone={overdue ? "red" : dueToday ? "amber" : "neutral"}>
+              <CalendarDays size={11} />
+              {overdue ? `Overdue · ${t.due_date}` : t.due_date}
+            </Badge>
+          )}
+          <AvatarStack assignees={t.assignees ?? []} />
+          <Badge tone={projectName(t) ? "green" : "neutral"}>{projectName(t) ?? "Personal"}</Badge>
         </span>
       </li>
     );
   };
 
   return (
-    <div
-      className="mx-auto min-h-full max-w-3xl p-5"
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setPageMenu({ x: e.clientX, y: e.clientY });
-      }}
-    >
+    <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">
       <div className="mb-4 flex flex-wrap gap-1.5">
         {filters.map((f) => (
           <button
@@ -147,24 +157,6 @@ export function MyTasksPage() {
       <CompletedSection count={completedBelow.length}>
         <ul className="flex flex-col gap-2">{completedBelow.map(row)}</ul>
       </CompletedSection>
-
-      {pageMenu && (
-        <ContextMenu
-          x={pageMenu.x}
-          y={pageMenu.y}
-          items={[{ label: "Add task", icon: <Plus size={14} />, onClick: () => setAdding(true) }]}
-          onClose={() => setPageMenu(null)}
-        />
-      )}
-
-      <TaskModal
-        task={selected}
-        onClose={() => setSelected(null)}
-        onChanged={() => {
-          setSelected(null);
-          load();
-        }}
-      />
     </div>
   );
 }

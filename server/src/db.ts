@@ -41,11 +41,33 @@ db.run(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS workspace_members (
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('admin','write','checker','read')),
+    PRIMARY KEY (workspace_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL,
+    UNIQUE (workspace_id, name)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_assignees (
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS columns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    position INTEGER NOT NULL DEFAULT 0
+    position INTEGER NOT NULL DEFAULT 0,
+    is_done INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS tasks (
@@ -138,6 +160,12 @@ for (const { owner_id } of orphanOwners) {
     ws.id,
     owner_id,
   ]);
+}
+
+if (!hasColumn("columns", "is_done")) {
+  db.run("ALTER TABLE columns ADD COLUMN is_done INTEGER NOT NULL DEFAULT 0");
+  // best-effort: default kanban "Done" columns become the done column
+  db.run("UPDATE columns SET is_done = 1 WHERE name = 'Done'");
 }
 
 // tasks.column_id used to be NOT NULL; personal tasks need it nullable.

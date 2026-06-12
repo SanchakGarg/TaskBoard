@@ -6,11 +6,40 @@ export interface User {
   provider: string;
 }
 
+export type Role = "read" | "checker" | "write" | "admin";
+
+export const roleRank: Record<Role, number> = { read: 0, checker: 1, write: 2, admin: 3 };
+export const atLeast = (role: Role | null | undefined, min: Role): boolean =>
+  !!role && roleRank[role] >= roleRank[min];
+
 export interface Workspace {
   id: number;
   name: string;
   position: number;
   created_at: string;
+  role: Role;
+}
+
+export interface Member {
+  id: number;
+  name: string;
+  email: string;
+  avatar_url: string;
+  role: Role;
+  is_owner: number;
+}
+
+export interface TagDef {
+  id: number;
+  workspace_id: number;
+  name: string;
+  color: string;
+}
+
+export interface Assignee {
+  id: number;
+  name: string;
+  avatar_url: string;
 }
 
 export interface Project {
@@ -28,6 +57,7 @@ export interface Column {
   project_id: number;
   name: string;
   position: number;
+  is_done: number;
 }
 
 export type Priority = "low" | "medium" | "high" | "urgent";
@@ -43,7 +73,8 @@ export interface Task {
   position: number;
   completed_at: string | null;
   created_at: string;
-  project_id?: number;
+  project_id?: number | null;
+  assignees?: Assignee[];
 }
 
 export interface Milestone {

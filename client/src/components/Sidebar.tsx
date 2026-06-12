@@ -5,12 +5,13 @@ import {
   KanbanSquare,
   List,
   Plus,
+  Settings,
   Trash2,
   ChevronLeft,
   ChevronRight,
   FolderOpen,
 } from "lucide-react";
-import { Button, Divider, Input, Modal, Tooltip, useConfirm } from "./ui";
+import { Button, ContextMenu, Divider, Input, Modal, Tooltip, useConfirm, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
 import type { Project, Workspace } from "../lib/types";
 
@@ -28,6 +29,7 @@ interface SidebarProps {
   onDeleteWorkspace: (id: number) => Promise<void>;
   onCreateProject: (workspaceId: number, name: string, viewType: "kanban" | "list") => Promise<void>;
   onDeleteProject: (id: number) => Promise<void>;
+  onOpenSettings: (workspace: Workspace) => void;
   collapsed: boolean;
   onToggle: () => void;
 }
@@ -41,6 +43,7 @@ export function Sidebar({
   onDeleteWorkspace,
   onCreateProject,
   onDeleteProject,
+  onOpenSettings,
   collapsed,
   onToggle,
 }: SidebarProps) {
@@ -51,6 +54,37 @@ export function Sidebar({
   const [wsName, setWsName] = useState("");
   const [viewType, setViewType] = useState<"kanban" | "list">("kanban");
   const [closedWs, setClosedWs] = useState<Set<number>>(new Set());
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+  const workspaceMenu = (ws: Workspace, projectCount: number): ContextMenuItem[] => {
+    const items: ContextMenuItem[] = [];
+    if (ws.role === "admin")
+      items.push({
+        label: "New project",
+        icon: <Plus size={14} />,
+        onClick: () => setCreatingIn(ws.id),
+      });
+    items.push({
+      label: "Settings",
+      icon: <Settings size={14} />,
+      onClick: () => onOpenSettings(ws),
+    });
+    if (ws.role === "admin")
+      items.push({
+        label: "Delete workspace",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onClick: async () => {
+          if (
+            await confirm(
+              `Delete workspace "${ws.name}" with its ${projectCount} project${projectCount === 1 ? "" : "s"} and all their tasks?`
+            )
+          )
+            onDeleteWorkspace(ws.id);
+        },
+      });
+    return items;
+  };
 
   const submitProject = async () => {
     const trimmed = name.trim();
@@ -80,7 +114,22 @@ export function Sidebar({
   return (
     <>
       <aside
-        className={`anim-sidebar flex h-screen shrink-0 flex-col border-r-2 border-ink/20 bg-paper-dark/60 backdrop-blur ${collapsed ? "w-14" : "w-64"}`}
+        onContextMenu={(e) => {
+          // right-click on sidebar background → new workspace
+          e.preventDefault();
+          setMenu({
+            x: e.clientX,
+            y: e.clientY,
+            items: [
+              {
+                label: "New workspace",
+                icon: <Plus size={14} />,
+                onClick: () => setCreatingWs(true),
+              },
+            ],
+          });
+        }}
+        className={`anim-sidebar flex h-full shrink-0 flex-col border-r-2 border-ink/20 bg-paper-dark/60 backdrop-blur ${collapsed ? "w-14" : "w-64"}`}
       >
         <div className={`flex gap-2 p-3 ${collapsed ? "flex-col items-center" : "items-center"}`}>
           <Notebook size={28} className="shrink-0 text-pen-blue" />
@@ -123,7 +172,15 @@ export function Sidebar({
             return (
               <div key={ws.id} className="mb-1">
                 {!collapsed && (
-                  <div className="group/ws flex items-center gap-1 rounded-md px-1 py-1">
+                  <div
+                    className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
+                    onContextMenu={(e) => {
+                      // right-click a workspace → project creation, settings, delete
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws, wsProjects.length) });
+                    }}
+                  >
                     <button
                       onClick={() => toggleWs(ws.id)}
                       className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-sm font-semibold text-ink-soft hover:text-ink"
@@ -135,26 +192,21 @@ export function Sidebar({
                       <FolderOpen size={14} className="shrink-0" />
                       <span className="truncate">{ws.name}</span>
                     </button>
+                    {ws.role === "admin" && (
+                      <button
+                        aria-label={`New project in ${ws.name}`}
+                        onClick={() => setCreatingIn(ws.id)}
+                        className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    )}
                     <button
-                      aria-label={`New project in ${ws.name}`}
-                      onClick={() => setCreatingIn(ws.id)}
+                      aria-label={`Settings for ${ws.name}`}
+                      onClick={() => onOpenSettings(ws)}
                       className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
                     >
-                      <Plus size={14} />
-                    </button>
-                    <button
-                      aria-label={`Delete workspace ${ws.name}`}
-                      onClick={async () => {
-                        if (
-                          await confirm(
-                            `Delete workspace "${ws.name}" with its ${wsProjects.length} project${wsProjects.length === 1 ? "" : "s"} and all their tasks?`
-                          )
-                        )
-                          onDeleteWorkspace(ws.id);
-                      }}
-                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-pen-red group-hover/ws:opacity-100"
-                    >
-                      <Trash2 size={13} />
+                      <Settings size={13} />
                     </button>
                   </div>
                 )}
@@ -172,7 +224,7 @@ export function Sidebar({
                         active={view.kind === "board" && view.projectId === p.id}
                         onClick={() => onNavigate({ kind: "board", projectId: p.id })}
                       />
-                      {!collapsed && (
+                      {!collapsed && ws.role === "admin" && (
                         <button
                           aria-label={`Delete ${p.name}`}
                           onClick={async () => {
@@ -214,6 +266,8 @@ export function Sidebar({
           )}
         </div>
       </aside>
+
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
       <Modal open={creatingIn !== null} onClose={() => setCreatingIn(null)} title="New project">
         <form

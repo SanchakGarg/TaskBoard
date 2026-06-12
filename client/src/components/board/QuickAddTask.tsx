@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Flag, Plus, Tag } from "lucide-react";
-import { api } from "../../lib/api";
-import type { Priority } from "../../lib/types";
-import { Badge, Button, Input } from "../ui";
+import type { Member, Priority, TagDef } from "../../lib/types";
+import { Button, DatePicker, Input } from "../ui";
+import { AssigneePicker, PriorityPicker, TagPicker } from "./pickers";
 
 interface QuickAddTaskProps {
   onCreate: (data: {
@@ -10,34 +9,21 @@ interface QuickAddTaskProps {
     dueDate?: string;
     tags: string[];
     priority: Priority;
+    assignees: number[];
   }) => Promise<void>;
   onCancel: () => void;
+  tags?: TagDef[]; // workspace tag registry (empty for personal tasks)
+  members?: Member[]; // workspace members for assignment
 }
 
-const priorityOrder: Priority[] = ["low", "medium", "high", "urgent"];
-const priorityStyle: Record<Priority, string> = {
-  low: "border-ink-soft/40 text-ink-soft",
-  medium: "border-pen-blue/60 text-pen-blue",
-  high: "border-pen-amber/60 text-pen-amber",
-  urgent: "border-pen-red/60 text-pen-red",
-};
-
-export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
+export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: QuickAddTaskProps) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [showDate, setShowDate] = useState(false);
   const [priority, setPriority] = useState<Priority>("low");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagOpen, setTagOpen] = useState(false);
-  const [tagInput, setTagInput] = useState("");
-  const [savedTags, setSavedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [assignees, setAssignees] = useState<number[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
-  useEffect(() => {
-    api.get<string[]>("/tags").then(setSavedTags);
-  }, []);
-
-  // close when clicking outside the whole form
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!formRef.current?.contains(e.target as Node)) onCancel();
@@ -49,23 +35,13 @@ export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
   const submit = async () => {
     const t = title.trim();
     if (!t) return;
-    await onCreate({ title: t, dueDate: dueDate || undefined, tags, priority });
+    await onCreate({ title: t, dueDate: dueDate || undefined, tags: selectedTags, priority, assignees });
     setTitle("");
     setDueDate("");
-    setTags([]);
-    setTagInput("");
+    setSelectedTags([]);
+    setAssignees([]);
     setPriority("low");
   };
-
-  const addTag = (value: string) => {
-    const t = value.trim();
-    if (t && !tags.includes(t)) setTags([...tags, t]);
-    setTagInput("");
-  };
-
-  const suggestions = savedTags.filter(
-    (t) => !tags.includes(t) && t.toLowerCase().includes(tagInput.trim().toLowerCase())
-  );
 
   return (
     <form
@@ -85,102 +61,13 @@ export function QuickAddTask({ onCreate, onCancel }: QuickAddTaskProps) {
         className="!border-transparent !px-1 !py-1"
       />
 
-      {(tags.length > 0 || dueDate) && (
-        <div className="flex flex-wrap items-center gap-1">
-          {tags.map((t) => (
-            <button key={t} type="button" onClick={() => setTags(tags.filter((x) => x !== t))} className="cursor-pointer">
-              <Badge tone="blue">{t} ✕</Badge>
-            </button>
-          ))}
-          {dueDate && (
-            <button type="button" onClick={() => setDueDate("")} className="cursor-pointer">
-              <Badge tone="neutral">
-                <CalendarDays size={11} />
-                {dueDate} ✕
-              </Badge>
-            </button>
-          )}
-        </div>
-      )}
-
-      {tagOpen && (
-        <span className="relative">
-          <Input
-            autoFocus
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-              if (e.key === "Escape") setTagOpen(false);
-            }}
-            placeholder="Tag name…"
-            className="!py-1 text-sm"
-          />
-          {suggestions.length > 0 && (
-            <span className="anim-modal absolute left-0 top-full z-20 mt-1 flex max-h-32 w-full flex-col overflow-y-auto rounded-lg border-2 border-ink bg-paper shadow-card">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    addTag(s);
-                  }}
-                  className="anim-hover cursor-pointer px-3 py-1 text-left text-sm hover:bg-paper-dark"
-                >
-                  {s}
-                </button>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
-
-      {showDate && (
-        <Input
-          type="date"
-          value={dueDate}
-          onChange={(e) => {
-            setDueDate(e.target.value);
-            setShowDate(false);
-          }}
-          className="!py-1 text-sm"
-        />
-      )}
-
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          title="Add tag"
-          onClick={() => setTagOpen((v) => !v)}
-          className={`anim-hover flex cursor-pointer items-center gap-0.5 rounded-md border border-ink-soft/40 px-1.5 py-0.5 text-xs text-ink-soft hover:border-ink hover:text-ink ${tagOpen ? "bg-paper-dark" : ""}`}
-        >
-          <Plus size={11} />
-          <Tag size={11} />
-        </button>
-        <button
-          type="button"
-          title="Set due date"
-          onClick={() => setShowDate((v) => !v)}
-          className={`anim-hover flex cursor-pointer items-center gap-0.5 rounded-md border border-ink-soft/40 px-1.5 py-0.5 text-xs text-ink-soft hover:border-ink hover:text-ink ${showDate ? "bg-paper-dark" : ""}`}
-        >
-          <Plus size={11} />
-          <CalendarDays size={11} />
-        </button>
-        <button
-          type="button"
-          title={`Priority: ${priority} (click to change)`}
-          onClick={() =>
-            setPriority(priorityOrder[(priorityOrder.indexOf(priority) + 1) % priorityOrder.length])
-          }
-          className={`anim-hover flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs capitalize ${priorityStyle[priority]}`}
-        >
-          <Flag size={11} />
-          {priority}
-        </button>
+      <div className="flex flex-wrap items-center gap-1">
+        <TagPicker selected={selectedTags} onChange={setSelectedTags} available={tags} />
+        <DatePicker value={dueDate} onChange={setDueDate} compact />
+        <PriorityPicker value={priority} onChange={setPriority} />
+        {members.length > 0 && (
+          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
+        )}
         <Button type="submit" size="sm" className="ml-auto !px-3 !py-0.5" disabled={!title.trim()}>
           Add
         </Button>
