@@ -48,7 +48,7 @@ export function Sidebar({
       >
         <div className={`flex gap-2 p-3 ${collapsed ? "flex-col items-center" : "items-center"}`}>
           <Notebook size={28} className="shrink-0 text-pen-blue" />
-          {!collapsed && <span className="font-hand text-lg font-bold">Jotter</span>}
+          {!collapsed && <span className="font-hand text-lg font-bold">Taskboard</span>}
           <button
             onClick={onToggle}
             aria-label="Toggle sidebar"
