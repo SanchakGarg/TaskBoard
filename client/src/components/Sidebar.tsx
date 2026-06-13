@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  User,
 } from "lucide-react";
 import { Button, ContextMenu, Divider, Input, Modal, Tooltip, useConfirm, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
@@ -29,8 +30,9 @@ interface SidebarProps {
   onDeleteWorkspace: (id: number) => Promise<void>;
   onCreateProject: (workspaceId: number, name: string, viewType: "kanban" | "list") => Promise<void>;
   onDeleteProject: (id: number) => Promise<void>;
-  onOpenSettings: (workspace: Workspace) => void;
-  onOpenProjectSettings: (project: Project) => void;
+  onOpenSettings: (ws: Workspace) => void;
+  onOpenProjectSettings: (p: Project) => void;
+  onOpenUserSettings: () => void;
   collapsed: boolean;
   onToggle: () => void;
 }
@@ -46,6 +48,7 @@ export function Sidebar({
   onDeleteProject,
   onOpenSettings,
   onOpenProjectSettings,
+  onOpenUserSettings,
   collapsed,
   onToggle,
 }: SidebarProps) {
@@ -285,7 +288,7 @@ export function Sidebar({
           })}
         </div>
 
-        <div className="p-2">
+        <div className="p-2 flex flex-col gap-2">
           {collapsed ? (
             <Tooltip label="New workspace">
               <Button size="sm" variant="ghost" onClick={() => setCreatingWs(true)}>
@@ -300,6 +303,23 @@ export function Sidebar({
               onClick={() => setCreatingWs(true)}
             >
               <Plus size={16} /> New workspace
+            </Button>
+          )}
+
+          {collapsed ? (
+            <Tooltip label="Profile & Settings">
+              <Button size="sm" variant="ghost" onClick={onOpenUserSettings}>
+                <User size={16} />
+              </Button>
+            </Tooltip>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full"
+              onClick={onOpenUserSettings}
+            >
+              <User size={16} /> Profile & Settings
             </Button>
           )}
         </div>

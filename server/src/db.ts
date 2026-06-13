@@ -18,6 +18,7 @@ db.run(`
     email TEXT NOT NULL,
     name TEXT NOT NULL DEFAULT '',
     avatar_url TEXT NOT NULL DEFAULT '',
+    theme_prefs TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (provider, subject)
   );
@@ -149,6 +150,8 @@ if (!hasColumn("projects", "position"))
   db.run("ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
 if (!hasColumn("projects", "workspace_id"))
   db.run("ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE");
+if (!hasColumn("users", "theme_prefs"))
+  db.run("ALTER TABLE users ADD COLUMN theme_prefs TEXT NOT NULL DEFAULT '{}'");
 
 // adopt orphan projects (created before workspaces) into a default workspace per owner
 const orphanOwners = db
@@ -219,6 +222,7 @@ export interface User {
   email: string;
   name: string;
   avatar_url: string;
+  theme_prefs: string;
 }
 
 export interface Task {

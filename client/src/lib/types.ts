@@ -4,6 +4,7 @@ export interface User {
   email: string;
   avatarUrl: string;
   provider: string;
+  themePrefs?: Record<string, string>;
 }
 
 export type Role = "read" | "checker" | "write" | "admin";

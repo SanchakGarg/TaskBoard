@@ -12,6 +12,7 @@ import { MyTasksPage } from "./components/MyTasksPage";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
+import { UserSettings } from "./components/UserSettings";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/3
 const parseHash = (): View => {
@@ -39,6 +40,7 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile sidebar
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
+  const [settingsUser, setSettingsUser] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
@@ -141,6 +143,10 @@ export function App() {
         setSettingsProject(p);
         setDrawerOpen(false);
       }}
+      onOpenUserSettings={() => {
+        setSettingsUser(true);
+        setDrawerOpen(false);
+      }}
       collapsed={collapsed}
       onToggle={() => setCollapsed((c) => !c)}
     />
@@ -195,6 +201,9 @@ export function App() {
           onClose={() => setSettingsProject(null)}
           onSaved={loadAll}
         />
+      )}
+      {settingsUser && (
+        <UserSettings onClose={() => setSettingsUser(false)} />
       )}
     </div>
   );

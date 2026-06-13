@@ -7,6 +7,7 @@ interface AuthState {
   loading: boolean;
   providers: string[];
   logout: () => Promise<void>;
+  updateProfile: (data: { name?: string; themePrefs?: Record<string, string> }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthState>({
   loading: true,
   providers: [],
   logout: async () => {},
+  updateProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,8 +43,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateProfile = async (data: { name?: string; themePrefs?: Record<string, string> }) => {
+    const updatedUser = await api.patch<User>("/auth/me", data);
+    setUser(updatedUser);
+  };
+
+  useEffect(() => {
+    if (user?.themePrefs) {
+      const root = document.documentElement;
+      // We assume themePrefs keys match CSS variable suffixes like 'paper', 'ink', 'pen-blue'
+      for (const [key, value] of Object.entries(user.themePrefs)) {
+        if (value) {
+          root.style.setProperty(`--color-${key}`, value);
+        } else {
+          root.style.removeProperty(`--color-${key}`);
+        }
+      }
+    }
+  }, [user?.themePrefs]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, providers, logout }}>
+    <AuthContext.Provider value={{ user, loading, providers, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import * as oidc from "openid-client";
 import jwt from "jsonwebtoken";
 import { config } from "./config";
-import { upsertUser, getUser, type User } from "./db";
+import { upsertUser, getUser, db, type User } from "./db";
 
 type ProviderName = "google" | "zitadel";
 
@@ -185,6 +185,39 @@ authRouter.post("/logout", (_req, res) => {
 });
 
 authRouter.get("/me", requireAuth, (req, res) => {
-  const { id, name, email, avatar_url, provider } = (req as AuthedRequest).user;
-  res.json({ id, name, email, avatarUrl: avatar_url, provider });
+  const { id, name, email, avatar_url, provider, theme_prefs } = (req as AuthedRequest).user;
+  res.json({
+    id,
+    name,
+    email,
+    avatarUrl: avatar_url,
+    provider,
+    themePrefs: JSON.parse(theme_prefs || "{}"),
+  });
+});
+
+authRouter.patch("/me", requireAuth, (req, res) => {
+  const { id } = (req as AuthedRequest).user;
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : undefined;
+  const themePrefs = req.body?.themePrefs;
+
+  let user = (req as AuthedRequest).user;
+
+  if (name !== undefined || themePrefs !== undefined) {
+    const newName = name !== undefined && name !== "" ? name : user.name;
+    const newThemePrefs = themePrefs !== undefined ? JSON.stringify(themePrefs) : user.theme_prefs;
+
+    user = db
+      .query("UPDATE users SET name = ?, theme_prefs = ? WHERE id = ? RETURNING *")
+      .get(newName, newThemePrefs, id) as User;
+  }
+
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatarUrl: user.avatar_url,
+    provider: user.provider,
+    themePrefs: JSON.parse(user.theme_prefs || "{}"),
+  });
 });
