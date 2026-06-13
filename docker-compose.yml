@@ -1,13 +1,25 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taskboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - taskboard-pg-data:/var/lib/postgresql/data
+
   taskboard:
     build: .
     ports:
       - "3000:3000"
     env_file:
       - .env
-    volumes:
-      - taskboard-data:/data
+    depends_on:
+      - postgres
     restart: unless-stopped
 
 volumes:
-  taskboard-data:
+  taskboard-pg-data:
