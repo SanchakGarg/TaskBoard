@@ -2,7 +2,8 @@ import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "./config";
 import { initAuth, authRouter } from "./auth";
 import { apiRouter } from "./api";
@@ -45,7 +46,8 @@ app.use("/api/auth", authRouter);
 app.use("/api", apiRouter);
 
 // serve built frontend in production
-const clientDist = resolve(import.meta.dir, "../../client/dist");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const clientDist = resolve(__dirname, "../../client/dist");
 if (existsSync(clientDist)) {
   // index.html must never be cached or browsers keep serving stale bundles;
   // hashed assets are safe to cache forever

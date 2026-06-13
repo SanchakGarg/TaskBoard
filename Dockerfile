@@ -1,17 +1,23 @@
 # ---------- build the frontend ----------
 FROM oven/bun:1.3-slim AS client-build
 WORKDIR /app
-COPY client/package.json client/bun.lock ./client/
-RUN cd client && bun install --frozen-lockfile
+# Copy workspace root + all package.json files so bun can resolve the workspace
+COPY package.json bun.lock ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN bun install --frozen-lockfile
 COPY client ./client
-RUN cd client && bun run build
+RUN bun --cwd client build
 
 # ---------- runtime ----------
 FROM oven/bun:1.3-slim
 WORKDIR /app
 
-COPY server/package.json server/bun.lock ./server/
-RUN cd server && bun install --frozen-lockfile --production
+# Same workspace context needed for bun install to resolve correctly
+COPY package.json bun.lock ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN bun install --frozen-lockfile --production
 
 COPY server/src ./server/src
 COPY --from=client-build /app/client/dist ./client/dist

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: taskboard
+    runtime: docker
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    disk:
+      name: taskboard-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /data/taskboard.db
+      - key: APP_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTH_GUEST_ENABLED
+        value: "true"
+      - key: AUTH_GOOGLE_ENABLED
+        value: "false"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: AUTH_ZITADEL_ENABLED
+        value: "false"
+      - key: ZITADEL_ISSUER
+        sync: false
+      - key: ZITADEL_CLIENT_ID
+        sync: false
+      - key: ZITADEL_CLIENT_SECRET
+        sync: false
