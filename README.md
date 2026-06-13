@@ -21,7 +21,8 @@ Radix, no chart or animation libraries.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill it in:
+Copy `.env.example` to `.env` for local development. Use
+`.env.render.example` as the template for Render.
 
 ```sh
 cp .env.example .env
