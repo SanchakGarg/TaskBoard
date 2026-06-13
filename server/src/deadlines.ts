@@ -13,7 +13,7 @@ interface OverdueTask {
   projectName: string;
 }
 
-async function sweep() {
+export async function runDeadlineSweep() {
   if (!mailEnabled) return;
   const overdue = await sql<OverdueTask[]>`
     SELECT t.id, t.title, t.due_date as "dueDate", p.id AS "projectId", p.name AS "projectName"
@@ -48,14 +48,17 @@ async function sweep() {
 
     await sql`UPDATE tasks SET deadline_notified_for = ${task.dueDate} WHERE id = ${task.id}`;
   }
+
+  return overdue.length;
 }
 
+// For local / non-Render environments: run sweep in-process every hour
 export function startDeadlineWatcher() {
   if (!mailEnabled) {
     console.log("SMTP not configured — deadline emails disabled");
     return;
   }
-  sweep().catch(console.error);
-  setInterval(() => sweep().catch(console.error), 60 * 60 * 1000);
+  runDeadlineSweep().catch(console.error);
+  setInterval(() => runDeadlineSweep().catch(console.error), 60 * 60 * 1000);
   console.log("Deadline watcher running (hourly)");
 }

@@ -13,6 +13,8 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
       - key: AUTH_GUEST_ENABLED
         value: "true"
       - key: AUTH_GOOGLE_ENABLED
@@ -28,4 +30,27 @@ services:
       - key: ZITADEL_CLIENT_ID
         sync: false
       - key: ZITADEL_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+  - type: cron
+    name: taskboard-deadline-sweep
+    runtime: docker
+    schedule: "0 * * * *"    # every hour on the dot
+    dockerCommand: >
+      curl -s -X POST https://taskboard.onrender.com/api/cron/sweep
+      -H "x-cron-secret: $CRON_SECRET"
+    envVars:
+      - key: CRON_SECRET
         sync: false

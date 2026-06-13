@@ -8,6 +8,7 @@ export const config = {
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/taskboard",
   jwtSecret: process.env.JWT_SECRET ?? "",
+  cronSecret: process.env.CRON_SECRET ?? "",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   isProd: process.env.NODE_ENV === "production",
 

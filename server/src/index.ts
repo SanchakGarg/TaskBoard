@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "./config";
 import { initAuth, authRouter } from "./auth";
 import { apiRouter } from "./api";
-import { startDeadlineWatcher } from "./deadlines";
+import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
 import { initDb } from "./db";
 
 const app = express();
@@ -43,6 +43,22 @@ app.use(
 );
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Endpoint for Render cron job (or any external scheduler) to trigger deadline emails.
+// Secured by a shared secret so it can't be called by random users.
+app.post("/api/cron/sweep", async (req, res) => {
+  const secret = config.cronSecret;
+  const auth = req.headers["x-cron-secret"];
+  if (!secret || auth !== secret) return res.status(401).json({ error: "unauthorized" });
+  try {
+    const count = await runDeadlineSweep();
+    res.json({ ok: true, notified: count });
+  } catch (err) {
+    console.error("Cron sweep failed:", err);
+    res.status(500).json({ error: "sweep failed" });
+  }
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api", apiRouter);
 
