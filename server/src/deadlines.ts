@@ -13,9 +13,9 @@ interface OverdueTask {
   project_name: string;
 }
 
-function sweep() {
+async function sweep() {
   if (!mailEnabled) return;
-  const overdue = db
+  const overdue = (await db
     .query(
       `SELECT t.id, t.title, t.due_date, p.id AS project_id, p.name AS project_name
        FROM tasks t
@@ -23,24 +23,24 @@ function sweep() {
        JOIN projects p ON p.id = c.project_id
        WHERE t.completed_at IS NULL
          AND t.due_date IS NOT NULL
-         AND t.due_date < date('now')
+         AND t.due_date < CURRENT_DATE::text
          AND (t.deadline_notified_for IS NULL OR t.deadline_notified_for != t.due_date)`
     )
-    .all() as OverdueTask[];
+    .all()) as unknown as OverdueTask[];
 
   for (const task of overdue) {
-    const assignees = db
+    const assignees = (await db
       .query(
         `SELECT u.email FROM task_assignees ta JOIN users u ON u.id = ta.user_id
          WHERE ta.task_id = ?`
       )
-      .all(task.id) as { email: string }[];
-    const managers = db
+      .all(task.id)) as { email: string }[];
+    const managers = (await db
       .query(
         `SELECT u.email FROM project_managers pm JOIN users u ON u.id = pm.user_id
          WHERE pm.project_id = ?`
       )
-      .all(task.project_id) as { email: string }[];
+      .all(task.project_id)) as { email: string }[];
 
     if (assignees.length)
       sendDeadlinePassed({
@@ -51,7 +51,10 @@ function sweep() {
         dueDate: task.due_date,
       });
 
-    db.run("UPDATE tasks SET deadline_notified_for = ? WHERE id = ?", [task.due_date, task.id]);
+    await db.run("UPDATE tasks SET deadline_notified_for = ? WHERE id = ?", [
+      task.due_date,
+      task.id,
+    ]);
   }
 }
 
@@ -60,7 +63,9 @@ export function startDeadlineWatcher() {
     console.log("SMTP not configured — deadline emails disabled");
     return;
   }
-  sweep();
-  setInterval(sweep, 60 * 60 * 1000);
+  void sweep();
+  setInterval(() => {
+    void sweep();
+  }, 60 * 60 * 1000);
   console.log("Deadline watcher running (hourly)");
 }

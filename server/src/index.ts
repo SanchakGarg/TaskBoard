@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { config } from "./config";
+import { initDatabase } from "./db";
 import { initAuth, authRouter } from "./auth";
 import { apiRouter } from "./api";
 import { startDeadlineWatcher } from "./deadlines";
@@ -70,6 +71,7 @@ app.use(
   }
 );
 
+await initDatabase();
 await initAuth();
 startDeadlineWatcher();
 app.listen(config.port, () => console.log(`taskboard listening on :${config.port}`));
