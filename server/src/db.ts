@@ -132,6 +132,12 @@ export async function initDatabase() {
       UNIQUE (workspace_id, name)
     );
 
+    CREATE TABLE IF NOT EXISTS task_assignees (
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      PRIMARY KEY (task_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS project_managers (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -161,12 +167,6 @@ export async function initDatabase() {
       created_at TEXT NOT NULL DEFAULT (${timestampText}),
       updated_at TEXT NOT NULL DEFAULT (${timestampText}),
       deadline_notified_for TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS task_assignees (
-      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      PRIMARY KEY (task_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS notes (
