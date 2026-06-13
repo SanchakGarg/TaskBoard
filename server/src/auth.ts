@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import * as oidc from "openid-client";
 import jwt from "jsonwebtoken";
 import { config } from "./config";
-import { upsertUser, getUser, db, type User } from "./db";
+import { upsertUser, getUser, sql, type User } from "./db";
 
 type ProviderName = "google" | "zitadel";
 
@@ -82,12 +82,12 @@ export interface AuthedRequest extends Request {
   user: User;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = readCookie(req, SESSION_COOKIE);
   if (!token) return res.status(401).json({ error: "unauthenticated" });
   try {
     const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-    const user = getUser(Number(payload.sub));
+    const user = await getUser(Number(payload.sub));
     if (!user) return res.status(401).json({ error: "unauthenticated" });
     (req as AuthedRequest).user = user;
     next();
@@ -102,11 +102,11 @@ authRouter.get("/providers", (_req, res) => {
   res.json({ providers: enabledProviders() });
 });
 
-authRouter.get("/:provider/login", (req, res) => {
+authRouter.get("/:provider/login", async (req, res) => {
   if (req.params.provider === "guest") {
     if (!config.auth.guest.enabled)
       return res.status(404).json({ error: "provider not enabled" });
-    const user = upsertUser({
+    const user = await upsertUser({
       provider: "guest",
       subject: "guest",
       email: "guest@local",
@@ -162,7 +162,7 @@ authRouter.get("/:provider/callback", async (req, res) => {
     const claims = tokens.claims();
     if (!claims?.sub) throw new Error("no subject in token");
 
-    const user = upsertUser({
+    const user = await upsertUser({
       provider: name,
       subject: claims.sub,
       email: (claims.email as string) ?? "",
@@ -196,7 +196,7 @@ authRouter.get("/me", requireAuth, (req, res) => {
   });
 });
 
-authRouter.patch("/me", requireAuth, (req, res) => {
+authRouter.patch("/me", requireAuth, async (req, res) => {
   const { id } = (req as AuthedRequest).user;
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : undefined;
   const themePrefs = req.body?.themePrefs;
@@ -207,9 +207,10 @@ authRouter.patch("/me", requireAuth, (req, res) => {
     const newName = name !== undefined && name !== "" ? name : user.name;
     const newThemePrefs = themePrefs !== undefined ? JSON.stringify(themePrefs) : user.theme_prefs;
 
-    user = db
-      .query("UPDATE users SET name = ?, theme_prefs = ? WHERE id = ? RETURNING *")
-      .get(newName, newThemePrefs, id) as User;
+    const [updated] = await sql<User[]>`
+      UPDATE users SET name = ${newName}, theme_prefs = ${newThemePrefs} WHERE id = ${id} RETURNING *
+    `;
+    if (updated) user = updated;
   }
 
   res.json({

@@ -1,18 +1,22 @@
+databases:
+  - name: taskboard-db
+    databaseName: taskboard
+    user: taskboard
+    plan: free
+
 services:
   - type: web
     name: taskboard
     runtime: docker
     healthCheckPath: /api/health
     autoDeployTrigger: commit
-    disk:
-      name: taskboard-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DB_PATH
-        value: /data/taskboard.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taskboard-db
+          property: connectionString
       - key: APP_URL
         sync: false
       - key: JWT_SECRET

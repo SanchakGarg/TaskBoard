@@ -6,7 +6,7 @@ const required = (name: string): string => {
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  dbPath: process.env.DB_PATH ?? "./data/taskboard.db",
+  databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/taskboard",
   jwtSecret: process.env.JWT_SECRET ?? "",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   isProd: process.env.NODE_ENV === "production",

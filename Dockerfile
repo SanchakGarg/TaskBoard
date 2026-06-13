@@ -22,15 +22,13 @@ RUN bun install --frozen-lockfile --production
 COPY server/src ./server/src
 COPY --from=client-build /app/client/dist ./client/dist
 
-# non-root user; data dir owned by it for the SQLite volume
+# non-root user
 RUN useradd -r -u 10001 taskboard \
-    && mkdir -p /data \
-    && chown -R taskboard /data /app
+    && chown -R taskboard /app
 USER taskboard
 
 ENV NODE_ENV=production \
-    PORT=3000 \
-    DB_PATH=/data/taskboard.db
+    PORT=3000
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
