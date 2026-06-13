@@ -5,7 +5,7 @@
     "dev:server": "bun --watch server/src/index.ts",
     "dev:client": "bun --cwd client dev",
     "build": "bun --cwd client build",
-    "start": "bun server/src/index.ts"
+    "start": "bun run build && bun server/src/index.ts"
   },
   "workspaces": [
     "client",
