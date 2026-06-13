@@ -6,8 +6,7 @@ const required = (name: string): string => {
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  databaseUrl:
-    process.env.DATABASE_URL ?? "postgres://taskboard:taskboard@localhost:5432/taskboard",
+  dbPath: process.env.DB_PATH ?? "./data/taskboard.db",
   jwtSecret: process.env.JWT_SECRET ?? "",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   isProd: process.env.NODE_ENV === "production",
@@ -15,9 +14,6 @@ export const config = {
   auth: {
     guest: {
       enabled: process.env.AUTH_GUEST_ENABLED === "true",
-    },
-    local: {
-      enabled: process.env.AUTH_LOCAL_ENABLED !== "false",
     },
     google: {
       enabled: process.env.AUTH_GOOGLE_ENABLED === "true",
