@@ -11,7 +11,7 @@ FROM oven/bun:1.3-slim
 WORKDIR /app
 
 COPY server/package.json server/bun.lock ./server/
-RUN cd server && bun install --production
+RUN cd server && bun install --production --no-save
 
 COPY server/src ./server/src
 COPY --from=client-build /app/client/dist ./client/dist
