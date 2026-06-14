@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type { Member, Role, TagDef, Workspace } from "../lib/types";
-import { Avatar, Badge, Button, Checkbox, Divider, Dropdown, Input, Modal, Toggle, useConfirm } from "./ui";
+import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, Toggle, useConfirm } from "./ui";
 
 const roleOptions: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
