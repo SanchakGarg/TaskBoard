@@ -11,15 +11,6 @@ interface Manager {
   avatar_url: string;
 }
 
-interface ProjectMember {
-  id: string;
-  name: string;
-  email: string;
-  avatar_url: string;
-  role: Role;
-  is_owner: boolean;
-}
-
 interface ProjectSettingsProps {
   project: Project;
   role: Role; // caller's role in the project's workspace
