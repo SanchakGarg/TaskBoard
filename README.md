@@ -48,8 +48,9 @@ The login page automatically shows a button per enabled provider.
 docker compose up -d --build
 ```
 
-The SQLite database lives in the `taskboard-data` volume. The container runs
-as a non-root user and exposes port 3000 — put nginx/Caddy in front for TLS.
+The Docker Compose configuration automatically spins up a fully configured PostgreSQL 16 server alongside the Taskboard app. You don't need to install or configure a database manually.
+
+The Postgres database data is persisted in the `taskboard-pg-data` volume. The Taskboard container runs as a non-root user and exposes port 3000 — put nginx/Caddy in front for TLS.
 
 ## Run without Docker
 

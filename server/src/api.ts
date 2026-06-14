@@ -701,6 +701,11 @@ apiRouter.post("/test-mailer", async (req, res) => {
     await sendTestEmail({ to: u.email });
     res.json({ ok: true });
   } catch (err: any) {
+    if (err.message?.toLowerCase().includes("timeout") || err.code === "ETIMEDOUT") {
+      return res.status(500).json({ 
+        error: "Connection Timeout. Note: Render's Free tier strictly blocks outbound SMTP ports (25, 465, 587) to prevent spam. You must upgrade to a paid Render account, or use an HTTP-based email API (like Resend/SendGrid) instead of raw SMTP." 
+      });
+    }
     res.status(500).json({ error: err.message || "Failed to send email" });
   }
 });
