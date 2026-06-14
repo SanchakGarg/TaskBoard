@@ -471,12 +471,16 @@ apiRouter.post("/projects/:id/members", async (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-apiRouter.delete("/projects/:id/members/:userId", async (req, res) => {
+apiRouter.patch("/projects/:id/members/:userId", async (req, res) => {
   const id = req.params.id;
   if (await getProjectRole(req, id) !== "admin") return forbidden(res);
-  await sql`DELETE FROM project_members WHERE project_id = ${id} AND user_id = ${req.params.userId}`;
+  if (!isRole(req.body?.role)) return bad(res, "valid role required");
+  await sql`UPDATE project_members SET role = ${req.body.role} WHERE project_id = ${id} AND user_id = ${req.params.userId}`;
   res.json({ ok: true });
 });
+
+apiRouter.delete("/projects/:id/members/:userId", async (req, res) => {
+...
 
 // ---------- project managers ----------
 

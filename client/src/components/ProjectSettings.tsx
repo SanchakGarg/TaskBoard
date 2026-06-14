@@ -185,21 +185,30 @@ export function ProjectSettings({ project, role, onClose, onSaved }: ProjectSett
                   <span className="ml-1.5 hidden text-xs text-ink-soft sm:inline">{m.email}</span>
                 </span>
                 {m.is_owner ? (
-                  <Badge tone="green">Owner</Badge>
+                <Badge tone="green">Owner</Badge>
                 ) : isAdmin ? (
-                  <span className="flex items-center gap-1">
-                    <Badge tone="neutral" className="text-[10px]">{m.role}</Badge>
-                    <button
-                      aria-label={`Remove ${m.name}`}
-                      onClick={() => removeProjectMember(m.id, m.name)}
-                      className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </span>
+                <span className="flex items-center gap-1">
+                  <Dropdown
+                    value={m.role}
+                    options={roleOptions.filter(o => o.value !== "admin")}
+                    onChange={async (newRole) => {
+                      await api.patch(`/projects/${project.id}/members/${m.id}`, { role: newRole });
+                      load();
+                    }}
+                    className="w-24 text-xs"
+                  />
+                  <button
+                    aria-label={`Remove ${m.name}`}
+                    onClick={() => removeProjectMember(m.id, m.name)}
+                    className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </span>
                 ) : (
-                  <Badge tone="neutral">{m.role}</Badge>
+                <Badge tone="neutral">{m.role}</Badge>
                 )}
+
               </li>
             ))}
           </ul>

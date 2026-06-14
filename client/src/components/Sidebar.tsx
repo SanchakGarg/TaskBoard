@@ -242,6 +242,23 @@ export function Sidebar({
               </div>
             );
           })}
+          
+          {/* Shared Projects */}
+          {!collapsed && projects.filter(p => !workspaces.find(w => w.id === p.workspace_id)).length > 0 && (
+            <div className="mt-4">
+              <Divider label="shared projects" className="mx-3 my-3" />
+              {projects.filter(p => !workspaces.find(w => w.id === p.workspace_id)).map(p => (
+                <NavItem
+                  key={p.id}
+                  icon={p.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />}
+                  label={p.name}
+                  collapsed={collapsed}
+                  active={view.kind === "board" && view.projectId === p.id}
+                  onClick={() => onNavigate({ kind: "board", projectId: p.id })}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="p-2 flex flex-col gap-2">
