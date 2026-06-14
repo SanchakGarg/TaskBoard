@@ -11,3 +11,4 @@ export { Tooltip } from "./Tooltip";
 export { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 export { ConfirmProvider, useConfirm } from "./Confirm";
 export { DatePicker } from "./DatePicker";
+export { Toggle } from "./Toggle";

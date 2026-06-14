@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type { Member, Role, TagDef, Workspace } from "../lib/types";
-import { Avatar, Badge, Button, Checkbox, Divider, Dropdown, Input, Modal, useConfirm } from "./ui";
+import { Avatar, Badge, Button, Checkbox, Divider, Dropdown, Input, Modal, Toggle, useConfirm } from "./ui";
 
 const roleOptions: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
@@ -155,15 +155,18 @@ export function WorkspaceSettings({ workspace, onClose, onSaved }: WorkspaceSett
         {/* ---------- settings ---------- */}
         <section>
           <h3 className="font-hand mb-2 font-bold">Settings</h3>
-          <div className="flex items-center gap-2">
-            <Checkbox
+          <div className="flex items-center justify-between rounded-lg border-2 border-ink/10 bg-paper-dark/30 p-3">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-ink">Email Notifications</span>
+              <span className="text-xs text-ink-soft">Send emails for invitations, assignments, and deadlines.</span>
+            </div>
+            <Toggle
               checked={workspace.notifications_enabled === 1}
               disabled={!isAdmin}
               onChange={(checked) =>
                 api.patch(`/workspaces/${workspace.id}`, { notificationsEnabled: checked }).then(onSaved)
               }
             />
-            <span className="text-sm">Enable email notifications for this workspace</span>
           </div>
         </section>
 
