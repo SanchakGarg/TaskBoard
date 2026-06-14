@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Link2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { api, ApiError } from "../lib/api";
-import type { Member, Project, Role } from "../lib/types";
+import type { Member, Project, ProjectMember, Role } from "../lib/types";
 import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, Toggle, showToast, useConfirm } from "./ui";
 
 interface Manager {

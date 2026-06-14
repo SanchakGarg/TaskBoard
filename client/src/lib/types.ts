@@ -22,7 +22,7 @@ export interface Workspace {
   notifications_enabled: number;
 }
 
-export interface Member {
+export interface ProjectMember {
   id: string;
   name: string;
   email: string;
