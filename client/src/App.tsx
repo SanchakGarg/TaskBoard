@@ -201,11 +201,15 @@ export function App() {
       </div>
 
       {settingsWs && (
-        <WorkspaceSettings workspace={settingsWs} onClose={() => setSettingsWs(null)} onSaved={loadAll} />
+        <WorkspaceSettings
+          workspace={workspaces.find((w) => w.id === settingsWs.id) ?? settingsWs}
+          onClose={() => setSettingsWs(null)}
+          onSaved={loadAll}
+        />
       )}
       {settingsProject && (
         <ProjectSettings
-          project={settingsProject}
+          project={projects.find((p) => p.id === settingsProject.id) ?? settingsProject}
           role={workspaces.find((w) => w.id === settingsProject.workspace_id)?.role ?? "read"}
           onClose={() => setSettingsProject(null)}
           onSaved={loadAll}
