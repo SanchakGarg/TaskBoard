@@ -128,8 +128,18 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     columnId: number,
     data: { title: string; dueDate?: string; tags: string[]; priority: string; assignees: number[] }
   ) => {
-    await api.post("/tasks", { columnId, ...data });
-    load();
+    const newTask = await api.post<Task>("/tasks", { columnId, ...data });
+    // Optimistically add to local state — no full reload needed
+    setTasks((prev) => [...prev, newTask]);
+    setAddingTo(null);
+    // Fetch fresh tags in background in case new ones were registered
+    api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(`/projects/${projectId}/board`)
+      .then((board) => {
+        setTasks(board.tasks);
+        return api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`);
+      })
+      .then(setTags)
+      .catch(() => {});
   };
 
   const createColumn = async () => {

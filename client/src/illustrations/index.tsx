@@ -91,3 +91,70 @@ export function SketchArrow({ className = "", size = 48 }: IllustrationProps) {
     </svg>
   );
 }
+
+// A hand-drawn pencil that spins — used in the full-page loader
+export function SpinningPencil({ className = "", size = 64 }: IllustrationProps) {
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} className={className}>
+      <g {...stroke} strokeWidth={2.4}>
+        {/* pencil body */}
+        <path d="M18 46 L 14 50 L 20 52 Z" />
+        <path d="M18 46 L 44 20 C 47 17, 50 17, 53 20 C 56 23, 56 26, 53 29 L 27 55 Z" />
+        {/* pencil stripe */}
+        <path d="M40 24 L 50 34" />
+        {/* wood tip */}
+        <path d="M18 46 L 22 42 L 20 52" />
+        {/* eraser top */}
+        <path d="M47 17 C 49 14, 53 14, 55 17" />
+        {/* sparkle dots – hand-drawn feel */}
+        <circle cx="8" cy="14" r="1.2" fill="currentColor" stroke="none" />
+        <circle cx="54" cy="44" r="1.4" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="32" r="0.9" fill="currentColor" stroke="none" />
+      </g>
+    </svg>
+  );
+}
+
+// Full-page artsy loader
+export function PageLoader() {
+  return (
+    <div className="graph-paper fixed inset-0 z-50 flex flex-col items-center justify-center gap-6">
+      {/* spinning pencil */}
+      <div
+        style={{
+          animation: "spin-pencil 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        }}
+      >
+        <SpinningPencil size={72} className="text-ink/80" />
+      </div>
+
+      {/* hand-written loading label */}
+      <p
+        className="font-hand text-xl text-ink/70"
+        style={{ animation: "fade-pulse 1.6s ease-in-out infinite" }}
+      >
+        loading your board…
+      </p>
+
+      {/* wobbly dashed dots as progress indicator */}
+      <div className="flex gap-3">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              border: "2.2px dashed currentColor",
+              display: "inline-block",
+              animation: `dot-bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+              color: "var(--color-ink)",
+              opacity: 0.5,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+

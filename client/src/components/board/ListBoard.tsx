@@ -142,8 +142,11 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
               tags={tags}
               members={members}
               onCreate={async (data) => {
-                await api.post("/tasks", { columnId: listColumn.id, ...data });
-                load();
+                const newTask = await api.post<Task>("/tasks", { columnId: listColumn.id, ...data });
+                setTasks((prev) => [...prev, newTask]);
+                setAdding(false);
+                // background refresh
+                load().catch(() => {});
               }}
               onCancel={() => setAdding(false)}
             />

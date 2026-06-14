@@ -22,11 +22,12 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [priority, setPriority] = useState<Priority>("low");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [assignees, setAssignees] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // workspace tasks must be assigned to someone; personal tasks have no members
   const requireAssignee = members.length > 0;
-  const canSubmit = !!title.trim() && (!requireAssignee || assignees.length > 0);
+  const canSubmit = !!title.trim() && (!requireAssignee || assignees.length > 0) && !submitting;
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -41,18 +42,19 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
 
   const submit = async () => {
     if (!canSubmit) return;
-    await onCreate({
-      title: title.trim(),
-      dueDate: dueDate || undefined,
-      tags: selectedTags,
-      priority,
-      assignees,
-    });
-    setTitle("");
-    setDueDate("");
-    setSelectedTags([]);
-    setAssignees([]);
-    setPriority("low");
+    setSubmitting(true);
+    try {
+      await onCreate({
+        title: title.trim(),
+        dueDate: dueDate || undefined,
+        tags: selectedTags,
+        priority,
+        assignees,
+      });
+      // onCreate is expected to call onCancel / close from the parent after success
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,8 +79,13 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
       <div className="flex items-center gap-1">
         <DatePicker value={dueDate} onChange={setDueDate} compact />
         <PriorityPicker value={priority} onChange={setPriority} />
-        <Button type="submit" size="sm" className="ml-auto !px-3 !py-0.5" disabled={!canSubmit}>
-          Add
+        <Button
+          type="submit"
+          size="sm"
+          className="ml-auto !px-3 !py-0.5"
+          disabled={!canSubmit}
+        >
+          {submitting ? "Adding…" : "Add"}
         </Button>
       </div>
 

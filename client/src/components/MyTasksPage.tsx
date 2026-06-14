@@ -117,8 +117,11 @@ export function MyTasksPage() {
           <QuickAddTask
             onCreate={async (data) => {
               // no columnId — a personal task, not tied to any project
-              await api.post("/tasks", data);
-              load();
+              const newTask = await api.post<Task>("/tasks", data);
+              setTasks((prev) => [...prev, newTask]);
+              setAdding(false);
+              // background refresh
+              void load();
             }}
             onCancel={() => setAdding(false)}
           />

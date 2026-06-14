@@ -13,6 +13,7 @@ import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
 import { UserSettings } from "./components/UserSettings";
+import { PageLoader } from "./illustrations";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/3
 const parseHash = (): View => {
@@ -41,16 +42,22 @@ export function App() {
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const [settingsUser, setSettingsUser] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
-    const [ws, ps] = await Promise.all([
-      api.get<Workspace[]>("/workspaces"),
-      api.get<Project[]>("/projects"),
-    ]);
-    setWorkspaces(ws);
-    setProjects(ps);
-    setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
+    setDataLoading(true);
+    try {
+      const [ws, ps] = await Promise.all([
+        api.get<Workspace[]>("/workspaces"),
+        api.get<Project[]>("/projects"),
+      ]);
+      setWorkspaces(ws);
+      setProjects(ps);
+      setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
+    } finally {
+      setDataLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -66,7 +73,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
-  if (loading) return <div className="graph-paper min-h-screen" />;
+  if (loading || dataLoading) return <PageLoader />;
   if (!user) return <Login />;
 
   const navigate = (v: View) => {
