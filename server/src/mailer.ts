@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
 
 // SMTP is optional: configure SMTP_HOST (and friends) to enable email.
 const host = process.env.SMTP_HOST;
@@ -13,9 +14,10 @@ const transporter = mailEnabled
       port: Number(process.env.SMTP_PORT ?? 587),
       secure: process.env.SMTP_SECURE === "true",
       auth: user ? { user, pass: process.env.SMTP_PASS ?? "" } : undefined,
-      // Force IPv4 — cloud environments often have broken IPv6 (ECONNREFUSED on ::1)
-      family: 4,
-      // Give up quickly instead of hanging for 60s
+      // Force IPv4 DNS resolution — Render resolves smtp.gmail.com to IPv6 by default
+      // which causes ECONNREFUSED. dnsLookup is the correct nodemailer way to fix this.
+      dnsLookup: (hostname: string, options: dns.LookupOneOptions, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) =>
+        dns.lookup(hostname, { ...options, family: 4 }, callback),
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
