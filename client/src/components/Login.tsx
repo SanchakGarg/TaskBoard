@@ -23,8 +23,7 @@ export function Login() {
 
         {providers.length === 0 ? (
           <p className="text-sm text-pen-red">
-            No login providers are enabled. Set AUTH_GOOGLE_ENABLED or AUTH_ZITADEL_ENABLED on the
-            server.
+            Login is currently unavailable. Please try again later.
           </p>
         ) : (
           <div className="flex flex-col gap-3">

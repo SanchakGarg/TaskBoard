@@ -57,6 +57,9 @@ export function App() {
       setProjects(ps);
       setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
       setHasLoadedOnce(true);
+    } catch (e) {
+      console.error("Failed to load initial data:", e);
+      alert("Something went wrong. Please refresh the page.");
     } finally {
       setDataLoading(false);
     }

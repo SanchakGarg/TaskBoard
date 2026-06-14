@@ -7,9 +7,18 @@ export const apiRouter = Router();
 apiRouter.use(requireAuth);
 
 const user = (req: unknown): User => (req as AuthedRequest).user;
-const bad = (res: Response, msg: string) => res.status(400).json({ error: msg });
-const notFound = (res: Response) => res.status(404).json({ error: "not found" });
-const forbidden = (res: Response) => res.status(403).json({ error: "forbidden" });
+const bad = (res: Response, msg: string) => {
+  console.warn(`Bad Request: ${msg}`);
+  return res.status(400).json({ error: msg });
+};
+const notFound = (res: Response) => {
+  console.warn("Not Found");
+  return res.status(404).json({ error: "not found" });
+};
+const forbidden = (res: Response) => {
+  console.warn("Forbidden");
+  return res.status(403).json({ error: "forbidden" });
+};
 
 const str = (v: unknown, max = 2000): string | null =>
   typeof v === "string" && v.length <= max ? v : null;

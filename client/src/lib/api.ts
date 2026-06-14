@@ -16,16 +16,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   if (!res.ok) {
     if (res.status === 401) {
-      // Security: if unauthorized, force a reload to trigger login screen and clear local state
-      window.location.href = "/";
-      return new Promise(() => {}); // prevent further execution
+      window.dispatchEvent(new CustomEvent("api-unauthorized"));
+      throw new ApiError(401, "unauthorized");
     }
-    let message = res.statusText;
-    try {
-      message = ((await res.json()) as { error?: string }).error ?? message;
-    } catch {
-      /* not json */
-    }
+    
+    const message = "Something went wrong. Please try again later.";
+    
+    // We log to console for developers, but the UI only sees the generic message.
+    // The user requested detailed errors only in server logs.
+    console.error(`API Error ${res.status}`);
+    
+    // Simple pop-up for errors as requested.
+    // We avoid alert for 401 as it's handled by redirecting to login.
+    alert(message);
+    
     throw new ApiError(res.status, message);
   }
   return res.json() as Promise<T>;

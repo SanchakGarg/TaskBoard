@@ -24,28 +24,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener("api-unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("api-unauthorized", handleUnauthorized);
+  }, []);
+
+  useEffect(() => {
     Promise.all([
       api.get<User>("/auth/me").catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 401) return null;
         throw e;
       }),
-      api.get<{ providers: string[] }>("/auth/providers"),
+      api.get<{ providers: string[] }>("/auth/providers").catch((e) => {
+        console.error("Failed to fetch providers:", e);
+        return { providers: [] };
+      }),
     ])
       .then(([me, p]) => {
         setUser(me);
         setProviders(p.providers);
       })
+      .catch((e) => {
+        console.error("Auth initialization failed:", e);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const logout = async () => {
-    await api.post("/auth/logout");
-    setUser(null);
+    try {
+      await api.post("/auth/logout");
+      setUser(null);
+    } catch (e) {
+      alert("Something went wrong while logging out.");
+    }
   };
 
   const updateProfile = async (data: { name?: string; themePrefs?: Record<string, string> }) => {
-    const updatedUser = await api.patch<User>("/auth/me", data);
-    setUser(updatedUser);
+    try {
+      const updatedUser = await api.patch<User>("/auth/me", data);
+      setUser(updatedUser);
+    } catch (e) {
+      alert("Something went wrong. Please try again later.");
+    }
   };
 
   useEffect(() => {

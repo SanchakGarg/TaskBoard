@@ -9,25 +9,31 @@ type ProviderName = "google" | "zitadel";
 const providers = new Map<ProviderName, oidc.Configuration>();
 
 export async function initAuth() {
-  if (config.auth.google.enabled) {
-    providers.set(
-      "google",
-      await oidc.discovery(
-        new URL(config.auth.google.issuer),
-        config.auth.google.clientId,
-        config.auth.google.clientSecret
-      )
-    );
-  }
-  if (config.auth.zitadel.enabled) {
-    providers.set(
-      "zitadel",
-      await oidc.discovery(
-        new URL(config.auth.zitadel.issuer),
-        config.auth.zitadel.clientId,
-        config.auth.zitadel.clientSecret
-      )
-    );
+  try {
+    if (config.auth.google.enabled) {
+      providers.set(
+        "google",
+        await oidc.discovery(
+          new URL(config.auth.google.issuer),
+          config.auth.google.clientId,
+          config.auth.google.clientSecret
+        )
+      );
+    }
+    if (config.auth.zitadel.enabled) {
+      providers.set(
+        "zitadel",
+        await oidc.discovery(
+          new URL(config.auth.zitadel.issuer),
+          config.auth.zitadel.clientId,
+          config.auth.zitadel.clientSecret
+        )
+      );
+    }
+  } catch (err) {
+    console.error("Auth initialization failed:", err);
+    // We re-throw because the app cannot safely operate without its configured auth providers
+    throw err;
   }
   const enabled = enabledProviders();
   console.log(
