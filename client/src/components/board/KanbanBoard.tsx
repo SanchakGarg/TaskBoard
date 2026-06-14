@@ -353,7 +353,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
                   onChange={(e) => setNewColumn(e.target.value)}
                   onBlur={() => !newColumn.trim() && setAddingColumn(false)}
                 />
-                <Button type="submit" size="sm" disabled={!name.trim()}>
+                <Button type="submit" size="sm" disabled={!newColumn.trim()}>
                   Add column
                 </Button>
               </form>

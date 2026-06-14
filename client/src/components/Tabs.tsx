@@ -1,22 +1,21 @@
 import { useState } from "react";
 import { KanbanSquare, List, ListChecks } from "lucide-react";
-import type { Project } from "../lib/types";
-import type { View } from "./Sidebar";
+import type { Project, View } from "../lib/types";
 
 interface TabsProps {
   projects: Project[];
   workspaceName?: string;
   view: View;
   onNavigate: (view: View) => void;
-  onReorder: (ids: number[]) => void;
+  onReorder: (ids: string[]) => void;
 }
 
 // Tab strip for the active workspace: My Tasks pinned first, project tabs drag to reorder.
 export function Tabs({ projects, workspaceName, view, onNavigate, onReorder }: TabsProps) {
-  const [dragId, setDragId] = useState<number | null>(null);
-  const [overId, setOverId] = useState<number | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
-  const drop = (targetId: number) => {
+  const drop = (targetId: string) => {
     if (dragId === null || dragId === targetId) return;
     const ids = projects.map((p) => p.id);
     const from = ids.indexOf(dragId);

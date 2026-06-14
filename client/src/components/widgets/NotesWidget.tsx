@@ -5,7 +5,7 @@ import type { Note } from "../../lib/types";
 
 export default function NotesWidget() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     api.get<Note[]>("/notes").then(setNotes);
@@ -16,13 +16,13 @@ export default function NotesWidget() {
     setNotes((n) => [...n, note]);
   };
 
-  const edit = (id: number, content: string) => {
+  const edit = (id: string, content: string) => {
     setNotes((n) => n.map((x) => (x.id === id ? { ...x, content } : x)));
     clearTimeout(timers.current[id]);
     timers.current[id] = setTimeout(() => api.patch(`/notes/${id}`, { content }), 600);
   };
 
-  const remove = (id: number) => {
+  const remove = (id: string) => {
     api.delete(`/notes/${id}`);
     setNotes((n) => n.filter((x) => x.id !== id));
   };

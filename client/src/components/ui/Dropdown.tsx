@@ -12,6 +12,7 @@ interface DropdownProps<T extends string> {
   options: DropdownOption<T>[];
   onChange: (value: T) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export function Dropdown<T extends string>({
@@ -19,6 +20,7 @@ export function Dropdown<T extends string>({
   options,
   onChange,
   className = "",
+  disabled = false,
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -59,9 +61,10 @@ export function Dropdown<T extends string>({
   const selected = options.find((o) => o.value === value);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative ${className} ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className="anim-hover flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-2 border-ink-soft/40 bg-paper px-3 py-2 hover:border-ink"
       >

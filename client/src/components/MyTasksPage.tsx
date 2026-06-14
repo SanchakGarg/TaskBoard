@@ -8,7 +8,7 @@ import { QuickAddTask } from "./board/QuickAddTask";
 import { CompletedSection } from "./board/CompletedSection";
 import { AvatarStack } from "./board/pickers";
 import { Coffee } from "../illustrations";
-import type { View } from "./Sidebar";
+import type { View } from "../lib/types";
 
 type Filter = "open" | "today" | "overdue" | "all";
 

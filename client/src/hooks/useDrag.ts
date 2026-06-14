@@ -3,20 +3,20 @@ import { useState, useCallback } from "react";
 // Native HTML5 drag & drop for the kanban board. No library.
 
 export interface DragData {
-  taskId: number;
-  fromColumn: number;
+  taskId: string;
+  fromColumn: string;
 }
 
-export function useBoardDrag(onMove: (taskId: number, toColumn: number, position: number) => void) {
+export function useBoardDrag(onMove: (taskId: string, toColumn: string, position: number) => void) {
   const [dragging, setDragging] = useState<DragData | null>(null);
-  const [overColumn, setOverColumn] = useState<number | null>(null);
+  const [overColumn, setOverColumn] = useState<string | null>(null);
 
   const dragProps = useCallback(
-    (taskId: number, fromColumn: number) => ({
+    (taskId: string, fromColumn: string) => ({
       draggable: true,
       onDragStart: (e: React.DragEvent) => {
         e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", String(taskId));
+        e.dataTransfer.setData("text/plain", taskId);
         setDragging({ taskId, fromColumn });
       },
       onDragEnd: () => {
@@ -28,7 +28,7 @@ export function useBoardDrag(onMove: (taskId: number, toColumn: number, position
   );
 
   const dropProps = useCallback(
-    (columnId: number, taskCount: number) => ({
+    (columnId: string, taskCount: number) => ({
       onDragOver: (e: React.DragEvent) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
