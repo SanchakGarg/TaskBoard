@@ -21,7 +21,7 @@ export function Modal({ open, onClose, title, children, wide = false }: ModalPro
 
   return (
     <div
-      className="anim-backdrop fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      className="anim-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-ink/40 p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
