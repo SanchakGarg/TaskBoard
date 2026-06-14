@@ -97,9 +97,10 @@ export function ProjectSettings({ project, role, onClose, onSaved }: ProjectSett
     }
   };
 
-  const removeProjectMember = async (userId: string, name: string) => {
+  const removeProjectMember = async (memberId: string, name: string, isPending: boolean) => {
     if (await confirm(`Remove ${name} from this project?`)) {
-      await api.delete(`/projects/${project.id}/members/${userId}`);
+      if (isPending) await api.delete(`/pending-invitations/${memberId}`);
+      else await api.delete(`/projects/${project.id}/members/${memberId}`);
       load();
     }
   };
@@ -199,7 +200,7 @@ export function ProjectSettings({ project, role, onClose, onSaved }: ProjectSett
                   />
                   <button
                     aria-label={`Remove ${m.name}`}
-                    onClick={() => removeProjectMember(m.id, m.name)}
+                    onClick={() => removeProjectMember(m.id, m.name, m.is_pending)}
                     className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
                   >
                     <Trash2 size={14} />

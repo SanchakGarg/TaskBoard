@@ -93,7 +93,9 @@ export function WorkspaceSettings({ workspace, onClose, onSaved }: WorkspaceSett
                   {m.name}
                   <span className="ml-1.5 hidden text-xs text-ink-soft sm:inline">{m.email}</span>
                 </span>
-                {m.is_owner ? (
+                {m.is_pending ? (
+                  <Badge tone="neutral">Pending</Badge>
+                ) : m.is_owner ? (
                   <Badge tone="green">Owner</Badge>
                 ) : isAdmin ? (
                   <span className="flex items-center gap-1">
@@ -110,8 +112,11 @@ export function WorkspaceSettings({ workspace, onClose, onSaved }: WorkspaceSett
                     <button
                       aria-label={`Remove ${m.name}`}
                       onClick={async () => {
-                        if (await confirm(`Remove ${m.name} from "${workspace.name}"?`))
-                          api.delete(`/workspaces/${workspace.id}/members/${m.id}`).then(load);
+                        if (await confirm(`Remove ${m.name} from "${workspace.name}"?`)) {
+                          if (m.is_pending) await api.delete(`/pending-invitations/${m.id}`);
+                          else await api.delete(`/workspaces/${workspace.id}/members/${m.id}`);
+                          load();
+                        }
                       }}
                       className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
                     >

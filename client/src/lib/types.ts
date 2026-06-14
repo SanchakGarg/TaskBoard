@@ -28,7 +28,8 @@ export interface Member {
   email: string;
   avatar_url: string;
   role: Role;
-  is_owner: number;
+  is_owner: boolean;
+  is_pending: boolean;
 }
 
 export interface TagDef {

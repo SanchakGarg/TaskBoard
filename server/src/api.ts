@@ -269,15 +269,28 @@ apiRouter.get("/workspaces/:id/members", async (req, res) => {
   const u = user(req);
   if (!u || !atLeast(await getRole(u.id, id), "read")) return notFound(res);
   const [owner] = await sql`
-    SELECT u.id, u.name, u.email, u.avatar_url, 'admin' AS role, true AS is_owner
+    SELECT u.id, u.name, u.email, u.avatar_url, 'admin' AS role, true AS is_owner, false AS is_pending
     FROM workspaces w JOIN users u ON u.id = w.owner_id WHERE w.id = ${id}
   `;
   const members = await sql`
-    SELECT u.id, u.name, u.email, u.avatar_url, m.role, false AS is_owner
+    SELECT u.id, u.name, u.email, u.avatar_url, m.role, false AS is_owner, false AS is_pending
     FROM workspace_members m JOIN users u ON u.id = m.user_id
     WHERE m.workspace_id = ${id} ORDER BY u.name
   `;
-  res.json([owner, ...members].filter(Boolean));
+  const pending = await sql`
+    SELECT email AS id, email AS name, email, '' AS avatar_url, role, false AS is_owner, true AS is_pending
+    FROM pending_invitations WHERE target_id = ${id} AND target_type = 'workspace'
+  `;
+  res.json([owner, ...members, ...pending].filter(Boolean));
+});
+
+apiRouter.delete("/pending-invitations/:email", async (req, res) => {
+  const email = req.params.email;
+  const [inv] = await sql<{ target_id: string; target_type: string }[]>`DELETE FROM pending_invitations WHERE email = ${email} RETURNING *`;
+  if (!inv) return notFound(res);
+  const u = user(req);
+  if (!u || (inv.target_type === 'workspace' ? await getRole(u.id, inv.target_id) : await getProjectRole(req, inv.target_id)) !== 'admin') return forbidden(res);
+  res.json({ ok: true });
 });
 
 apiRouter.post("/workspaces/:id/members", async (req, res) => {
@@ -445,15 +458,19 @@ apiRouter.get("/projects/:id/members", async (req, res) => {
   if (!wsId || !atLeast(await getProjectRole(req, id), "read")) return notFound(res);
   
   const [owner] = await sql`
-    SELECT u.id, u.name, u.email, u.avatar_url, 'admin' AS role, true AS is_owner
+    SELECT u.id, u.name, u.email, u.avatar_url, 'admin' AS role, true AS is_owner, false AS is_pending
     FROM projects p JOIN users u ON u.id = p.owner_id WHERE p.id = ${id}
   `;
   const members = await sql`
-    SELECT u.id, u.name, u.email, u.avatar_url, m.role, false AS is_owner
+    SELECT u.id, u.name, u.email, u.avatar_url, m.role, false AS is_owner, false AS is_pending
     FROM project_members m JOIN users u ON u.id = m.user_id
     WHERE m.project_id = ${id} ORDER BY u.name
   `;
-  res.json([owner, ...members].filter(Boolean));
+  const pending = await sql`
+    SELECT email AS id, email AS name, email, '' AS avatar_url, role, false AS is_owner, true AS is_pending
+    FROM pending_invitations WHERE target_id = ${id} AND target_type = 'project'
+  `;
+  res.json([owner, ...members, ...pending].filter(Boolean));
 });
 
 apiRouter.post("/projects/:id/members", async (req, res) => {
