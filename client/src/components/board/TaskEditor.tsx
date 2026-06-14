@@ -30,6 +30,15 @@ interface TaskEditorProps {
   onCancel: () => void;
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+const formatDeadline = (iso: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return time === "00:00" ? date : `${date} ${time}`;
+};
+
 // Expanding editor overlaid on top of the card — portaled so it can
 // spill outside the column instead of being clipped by it.
 export function TaskEditor({
@@ -51,11 +60,26 @@ export function TaskEditor({
   const [assignees, setAssignees] = useState<number[]>(task.assignees?.map((a) => a.id) ?? []);
 
   const save = () => {
+    let finalDueDate: string | null = null;
+    if (dueDate) {
+      if (dueDate.includes("T")) {
+        // already ISO
+        finalDueDate = dueDate;
+      } else {
+        // YYYY-MM-DD HH:mm (local)
+        const [d, t] = dueDate.split(" ");
+        const [y, m, day] = d!.split("-").map(Number);
+        const [h, min] = (t || "00:00").split(":").map(Number);
+        const date = new Date(y!, m! - 1, day!, h!, min!);
+        finalDueDate = date.toISOString();
+      }
+    }
+
     const updated = {
       title: title.trim() || task.title,
       description,
       priority,
-      due_date: dueDate || null,
+      due_date: finalDueDate,
       tags: JSON.stringify(selectedTags),
     };
     // Close immediately (optimistic)
@@ -84,6 +108,8 @@ export function TaskEditor({
   const left = Math.min(Math.max(8, anchor.left), window.innerWidth - width - 8);
   const top = Math.min(Math.max(8, anchor.top), Math.max(8, window.innerHeight - 360));
 
+  const hasTime = dueDate && dueDate.includes(" ") && !dueDate.endsWith("00:00");
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-ink/10" onMouseDown={onCancel} />
@@ -109,7 +135,7 @@ export function TaskEditor({
       />
       {/* calendar + priority above */}
       <div className="flex items-center gap-1">
-        <DatePicker value={dueDate} onChange={setDueDate} compact />
+        <DatePicker value={formatDeadline(dueDate)} onChange={setDueDate} compact />
         <PriorityPicker value={priority} onChange={setPriority} />
       </div>
 

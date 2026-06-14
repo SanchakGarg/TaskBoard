@@ -11,7 +11,18 @@ import { Coffee } from "../illustrations";
 
 type Filter = "open" | "today" | "overdue" | "all";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const pad = (n: number) => String(n).padStart(2, "0");
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const formatDeadline = (iso: string) => {
+  const d = new Date(iso);
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return time === "00:00" ? date : `${date} ${time}`;
+};
 
 const filters: { id: Filter; label: string }[] = [
   { id: "open", label: "Open" },
@@ -68,9 +79,7 @@ export function MyTasksPage() {
     return (
       <li
         key={t.id}
-        onDoubleClick={(e) =>
-          personal && setEditing({ task: t, anchor: anchorFromEvent(e) })
-        }
+        onDoubleClick={(e) => setEditing({ task: t, anchor: anchorFromEvent(e) })}
         className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
       >
         <span onClick={(e) => e.stopPropagation()}>
@@ -93,12 +102,17 @@ export function MyTasksPage() {
               {t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}
             </Badge>
           )}
-          {t.due_date && (
-            <Badge tone="red">
-              <Clock size={11} />
-              {t.due_date}
-            </Badge>
-          )}
+          {(() => {
+            if (!t.due_date) return null;
+            const d = new Date(t.due_date);
+            const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+            return (
+              <Badge tone={hasTime ? "red" : "blue"}>
+                <Clock size={11} />
+                {formatDeadline(t.due_date)}
+              </Badge>
+            );
+          })()}
           <AvatarStack assignees={t.assignees ?? []} />
           <Badge tone={projectName(t) ? "green" : "neutral"}>{projectName(t) ?? "Personal"}</Badge>
         </span>

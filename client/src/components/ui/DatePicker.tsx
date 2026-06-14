@@ -3,7 +3,10 @@ import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 interface DatePickerProps {
   value: string; // "" or YYYY-MM-DD or YYYY-MM-DD HH:mm
@@ -20,7 +23,12 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
   const [datePart, timePart] = value.split(" ");
   const [hours, mins] = (timePart || "00:00").split(":").map(Number);
 
-  const initial = datePart ? new Date(datePart + "T00:00:00") : new Date();
+  // Parse as local date
+  let initial = new Date();
+  if (datePart) {
+    const [y, m, d] = datePart.split("-").map(Number);
+    initial = new Date(y!, m! - 1, d!);
+  }
   const [month, setMonth] = useState({ y: initial.getFullYear(), m: initial.getMonth() });
 
   const MENU_W = 224;

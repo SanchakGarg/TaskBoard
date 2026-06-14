@@ -3,10 +3,11 @@ import { Badge, priorityTone } from "../ui";
 import { parseTags, type TagDef, type Task } from "../../lib/types";
 import { AvatarStack, TagBadge } from "./pickers";
 
+const pad = (n: number) => String(n).padStart(2, "0");
 const formatDeadline = (iso: string) => {
   const d = new Date(iso);
-  const date = d.toISOString().slice(0, 10);
-  const time = d.toTimeString().slice(0, 5);
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return time === "00:00" ? date : `${date} ${time}`;
 };
 
@@ -28,7 +29,8 @@ export function TaskCard({
   onContextMenu,
 }: TaskCardProps) {
   const taskTags = parseTags(task.tags);
-  const hasTime = task.due_date && !task.due_date.endsWith("T00:00:00.000Z");
+  const d = task.due_date ? new Date(task.due_date) : null;
+  const hasTime = d && (d.getHours() !== 0 || d.getMinutes() !== 0);
 
   return (
     <div
