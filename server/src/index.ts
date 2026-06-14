@@ -9,10 +9,13 @@ import { initAuth, authRouter } from "./auth";
 import { apiRouter } from "./api";
 import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
 import { initDb } from "./db";
+import { mailEnabled } from "./mailer";
 
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1); // behind nginx/caddy reverse proxy
+
+console.log(mailEnabled ? "Mailer: ENABLED" : "Mailer: DISABLED (check SMTP_HOST in .env)");
 
 app.use(
   helmet({
