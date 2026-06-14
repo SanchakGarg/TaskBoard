@@ -516,13 +516,21 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
 });
 
 apiRouter.patch("/tasks/:id/move", async (req, res) => {
-  const existing = await taskCtx(Number(req.params.id));
-  if (!existing || existing.workspace_id === null) return notFound(res);
-  const role = await taskRole(req, existing);
+  const taskId = Number(req.params.id);
   const toColumn = Number(req.body?.columnId);
   const toPosition = Number(req.body?.position);
+
+  if (Number.isNaN(taskId) || Number.isNaN(toColumn) || Number.isNaN(toPosition)) {
+    return bad(res, "taskId, columnId and position are required and must be numbers");
+  }
+
+  const existing = await taskCtx(taskId);
+  if (!existing || existing.workspace_id === null) return notFound(res);
+  const role = await taskRole(req, existing);
+
   const [target] = await sql<{ is_done: number; project_id: number }[]>`SELECT is_done, project_id FROM columns WHERE id = ${toColumn}`;
-  if (!target || Number.isNaN(toPosition)) return bad(res, "columnId and position required");
+  if (!target) return bad(res, "target column not found");
+  
   const targetCtx = await columnWorkspace(toColumn);
   if (!targetCtx || targetCtx.workspace_id !== existing.workspace_id) return notFound(res);
 
@@ -530,17 +538,27 @@ apiRouter.patch("/tasks/:id/move", async (req, res) => {
   const completionMove = !!target.is_done || !!source?.is_done;
   if (!atLeast(role, "write") && !(role === "checker" && completionMove)) return forbidden(res);
 
-  await sql`UPDATE tasks SET position = position - 1 WHERE column_id = ${existing.column_id!} AND position > ${existing.position}`;
-  await sql`UPDATE tasks SET position = position + 1 WHERE column_id = ${toColumn} AND position >= ${toPosition}`;
-  await sql`
-    UPDATE tasks SET column_id = ${toColumn}, position = ${toPosition},
-    completed_at = CASE WHEN ${target.is_done} = 1 THEN COALESCE(completed_at, CURRENT_TIMESTAMP) ELSE NULL END,
-    updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id}
-  `;
+  try {
+    await sql.begin(async (sql) => {
+      // Re-order source column (closing the gap)
+      await sql`UPDATE tasks SET position = position - 1 WHERE column_id = ${existing.column_id!} AND position > ${existing.position}`;
+      // Re-order target column (making space)
+      await sql`UPDATE tasks SET position = position + 1 WHERE column_id = ${toColumn} AND position >= ${toPosition}`;
+      // Move the task
+      await sql`
+        UPDATE tasks SET column_id = ${toColumn}, position = ${toPosition},
+        completed_at = CASE WHEN ${target.is_done} = 1 THEN COALESCE(completed_at, CURRENT_TIMESTAMP) ELSE NULL END,
+        updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id}
+      `;
+    });
 
-  if (target.is_done && !existing.completed_at)
-    await logActivity(user(req).id, existing.project_id, "completed task", existing.title);
-  res.json({ ok: true });
+    if (target.is_done && !existing.completed_at)
+      await logActivity(user(req).id, existing.project_id, "completed task", existing.title);
+    res.json({ ok: true });
+  } catch (err: any) {
+    console.error("Move task failed:", err);
+    res.status(500).json({ error: "failed to move task" });
+  }
 });
 
 apiRouter.delete("/tasks/:id", async (req, res) => {

@@ -46,7 +46,6 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   const isAdmin = role === "admin";
 
   const load = useCallback(async () => {
-    setIsInitialLoad(true);
     try {
       const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
         `/projects/${projectId}/board`
@@ -65,6 +64,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   }, [projectId]);
 
   useEffect(() => {
+    setIsInitialLoad(true);
     load();
   }, [load]);
 
@@ -72,10 +72,33 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
 
   const moveTask = useCallback(
     (taskId: number, toColumn: number, position: number) => {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, column_id: toColumn, position } : t))
-      );
-      api.patch(`/tasks/${taskId}/move`, { columnId: toColumn, position }).then(load, load);
+      setTasks((prev) => {
+        const task = prev.find((t) => t.id === taskId);
+        if (!task) return prev;
+
+        const fromColumn = task.column_id;
+        const fromPosition = task.position;
+
+        return prev.map((t) => {
+          if (t.id === taskId) {
+            return { ...t, column_id: toColumn, position };
+          }
+          // Shift others in the source column up to fill the gap
+          if (t.column_id === fromColumn && t.position > fromPosition) {
+            return { ...t, position: t.position - 1 };
+          }
+          // Shift others in the target column down to make room
+          if (t.column_id === toColumn && t.position >= position) {
+            return { ...t, position: t.position + 1 };
+          }
+          return t;
+        });
+      });
+
+      api.patch(`/tasks/${taskId}/move`, { columnId: toColumn, position }).catch(() => {
+        // On failure, reload to last known good state
+        load();
+      });
     },
     [load]
   );
