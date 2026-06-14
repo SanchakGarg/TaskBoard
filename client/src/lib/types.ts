@@ -22,7 +22,7 @@ export interface Workspace {
   notifications_enabled: number;
 }
 
-export interface ProjectMember {
+export interface Member {
   id: string;
   name: string;
   email: string;
@@ -31,6 +31,8 @@ export interface ProjectMember {
   is_owner: boolean;
   is_pending: boolean;
 }
+
+export interface ProjectMember extends Member {}
 
 export interface TagDef {
   id: string;
