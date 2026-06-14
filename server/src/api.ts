@@ -45,14 +45,23 @@ const getRole = async (userId: string | null, workspaceId: string): Promise<Role
 const getProjectRole = async (req: Request, projectId: string): Promise<Role | null> => {
   const u = user(req);
   
-  // 1. Check if authenticated user has access via workspace or project membership
+  // 1. Check if authenticated user has access
   if (u) {
-    const wsId = await projectWorkspace(projectId);
-    if (wsId) {
-      const wsRole = await getRole(u.id, wsId);
+    const [p] = await sql<{ owner_id: string; workspace_id: string | null }[]>`
+      SELECT owner_id, workspace_id FROM projects WHERE id = ${projectId}
+    `;
+    if (!p) return null;
+
+    // Project owner is always an admin
+    if (p.owner_id === u.id) return "admin";
+
+    // Workspace-level permissions
+    if (p.workspace_id) {
+      const wsRole = await getRole(u.id, p.workspace_id);
       if (wsRole) return wsRole;
     }
 
+    // Granular project-level permissions
     const [pm] = await sql<{ role: Role }[]>`
       SELECT role FROM project_members WHERE project_id = ${projectId} AND user_id = ${u.id}
     `;
@@ -65,7 +74,7 @@ const getProjectRole = async (req: Request, projectId: string): Promise<Role | n
     const [p] = await sql<{ share_role: Role; share_id: string }[]>`
       SELECT share_role, share_id FROM projects WHERE id = ${projectId}
     `;
-    if (p?.share_id === shareId && p.share_role && p.share_role !== "admin") 
+    if (p && p.share_id === shareId && p.share_role && p.share_role !== "admin") 
       return p.share_role;
   }
 
@@ -347,14 +356,14 @@ apiRouter.get("/projects", async (req, res) => {
   if (!u) return forbidden(res);
   const rows = await sql`
     SELECT p.*, 
-      CASE WHEN w.owner_id = ${u.id} THEN 'admin' 
+      CASE WHEN p.owner_id = ${u.id} OR w.owner_id = ${u.id} THEN 'admin' 
            ELSE COALESCE(m.role, pm.role, 'read') 
       END AS role
     FROM projects p
     JOIN workspaces w ON w.id = p.workspace_id
     LEFT JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = ${u.id}
     LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ${u.id}
-    WHERE w.owner_id = ${u.id} OR m.user_id IS NOT NULL OR pm.user_id IS NOT NULL
+    WHERE p.owner_id = ${u.id} OR w.owner_id = ${u.id} OR m.user_id IS NOT NULL OR pm.user_id IS NOT NULL
     ORDER BY p.position, p.created_at
   `;
   res.json(rows);
