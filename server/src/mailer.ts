@@ -130,7 +130,25 @@ async function send(opts: {
   }
 }
 
-// ---------- the three notification emails ----------
+export function sendPendingInvite(opts: {
+  to: string;
+  workspaceName: string;
+  projectName?: string;
+  role: string;
+  invitedBy: string;
+}) {
+  void send({
+    to: [opts.to],
+    subject: `You've been invited to Taskboard`,
+    text: `You have been invited to join ${opts.workspaceName}${opts.projectName ? ` / project ${opts.projectName}` : ''} by ${opts.invitedBy}. Please visit ${appUrl} to sign up and access your workspace.`,
+    html: template({
+      heading: "You've been invited!",
+      intro: `You have been invited to join <b>${opts.workspaceName}</b>${opts.projectName ? ` / project <b>${opts.projectName}</b>` : ''} by <b>${opts.invitedBy}</b>.`,
+      details: [{ label: "Access level", value: opts.role }],
+      cta: { label: "Join Taskboard", url: appUrl },
+    }),
+  });
+}
 
 export function sendWorkspaceInvite(opts: {
   to: string;

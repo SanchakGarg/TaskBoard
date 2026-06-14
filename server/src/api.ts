@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { sql, logActivity, type Task, type User } from "./db";
 import { requireAuth, type AuthedRequest } from "./auth";
-import { sendTaskAssigned, sendWorkspaceInvite, sendTestEmail } from "./mailer";
+import { sendTaskAssigned, sendWorkspaceInvite, sendTestEmail, sendPendingInvite } from "./mailer";
 
 export const apiRouter = Router();
 apiRouter.use(requireAuth);
@@ -290,6 +290,8 @@ apiRouter.post("/workspaces/:id/members", async (req, res) => {
   const [target] = await sql<{ id: string }[]>`SELECT id FROM users WHERE lower(email) = ${email}`;
   if (!target) {
     await sql`INSERT INTO pending_invitations (email, target_id, target_type, role, invited_by) VALUES (${email}, ${id}, 'workspace', ${role}, ${u.id}) ON CONFLICT (email) DO UPDATE SET target_id = ${id}, target_type = 'workspace', role = ${role}, invited_by = ${u.id}`;
+    const [ws] = await sql<{ name: string }[]>`SELECT name FROM workspaces WHERE id = ${id}`;
+    sendPendingInvite({ to: email, workspaceName: ws?.name ?? "", role, invitedBy: u.name });
     return res.status(201).json({ ok: true, pending: true });
   }
   const [wsRow] = await sql<{ owner_id: string }[]>`SELECT owner_id FROM workspaces WHERE id = ${id}`;
@@ -466,6 +468,10 @@ apiRouter.post("/projects/:id/members", async (req, res) => {
   const [target] = await sql<{ id: string }[]>`SELECT id FROM users WHERE lower(email) = ${email}`;
   if (!target) {
     await sql`INSERT INTO pending_invitations (email, target_id, target_type, role, invited_by) VALUES (${email}, ${id}, 'project', ${targetRole}, ${u.id}) ON CONFLICT (email) DO UPDATE SET target_id = ${id}, target_type = 'project', role = ${targetRole}, invited_by = ${u.id}`;
+    
+    const [pRow] = await sql<{ name: string }[]>`SELECT name FROM projects WHERE id = ${id}`;
+    sendPendingInvite({ to: email, workspaceName: pRow?.name ?? "a project", role: targetRole, invitedBy: u.name });
+    
     return res.status(201).json({ ok: true, pending: true });
   }
   
