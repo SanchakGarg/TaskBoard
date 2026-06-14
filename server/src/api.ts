@@ -548,7 +548,7 @@ apiRouter.patch("/tasks/:id/move", async (req, res) => {
       // Move the task
       await sql`
         UPDATE tasks SET column_id = ${toColumn}, position = ${toPosition},
-        completed_at = CASE WHEN ${target.is_done} = 1 THEN COALESCE(completed_at::timestamp, CURRENT_TIMESTAMP::timestamp) ELSE NULL END,
+        completed_at = CASE WHEN ${target.is_done}::int = 1 THEN COALESCE(completed_at, CURRENT_TIMESTAMP) ELSE NULL END,
         updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id}
       `;
     });

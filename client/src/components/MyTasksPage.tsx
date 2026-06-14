@@ -172,9 +172,15 @@ export function MyTasksPage() {
         <TaskEditor
           task={editing.task}
           anchor={editing.anchor}
-          onDone={() => {
+          onSave={(updated) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t))
+            );
             setEditing(null);
-            load();
+          }}
+          onDelete={() => {
+            setTasks((prev) => prev.filter((t) => t.id !== editing.task.id));
+            setEditing(null);
           }}
           onCancel={() => setEditing(null)}
         />

@@ -211,9 +211,15 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
           anchor={editing.anchor}
           tags={tags}
           members={members}
-          onDone={() => {
+          onSave={(updated) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t))
+            );
             setEditing(null);
-            load();
+          }}
+          onDelete={() => {
+            setTasks((prev) => prev.filter((t) => t.id !== editing.task.id));
+            setEditing(null);
           }}
           onCancel={() => setEditing(null)}
         />

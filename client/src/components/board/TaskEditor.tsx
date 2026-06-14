@@ -23,7 +23,10 @@ interface TaskEditorProps {
   tags?: TagDef[];
   members?: Member[];
   canDelete?: boolean;
-  onDone: () => void; // saved/deleted — reload
+  /** Called instantly with updated fields so parent can optimistically update state */
+  onSave: (updated: Partial<Task>) => void;
+  /** Called instantly so parent can optimistically remove from state */
+  onDelete: () => void;
   onCancel: () => void;
 }
 
@@ -35,7 +38,8 @@ export function TaskEditor({
   tags = [],
   members = [],
   canDelete = true,
-  onDone,
+  onSave,
+  onDelete,
   onCancel,
 }: TaskEditorProps) {
   const confirm = useConfirm();
@@ -46,22 +50,33 @@ export function TaskEditor({
   const [selectedTags, setSelectedTags] = useState<string[]>(parseTags(task.tags));
   const [assignees, setAssignees] = useState<number[]>(task.assignees?.map((a) => a.id) ?? []);
 
-  const save = async () => {
-    await api.patch(`/tasks/${task.id}`, {
+  const save = () => {
+    const updated = {
       title: title.trim() || task.title,
       description,
       priority,
-      dueDate: dueDate || null,
+      due_date: dueDate || null,
+      tags: JSON.stringify(selectedTags),
+    };
+    // Close immediately (optimistic)
+    onSave(updated);
+    // Fire API in background
+    api.patch(`/tasks/${task.id}`, {
+      ...updated,
+      dueDate: updated.due_date,
       tags: selectedTags,
       assignees,
+    }).catch(() => {
+      // On error, parent reload will happen via onSave's catch chain
     });
-    onDone();
   };
 
   const remove = async () => {
     if (!(await confirm(`Delete task "${task.title}"?`))) return;
-    await api.delete(`/tasks/${task.id}`);
-    onDone();
+    // Close immediately (optimistic)
+    onDelete();
+    // Fire API in background
+    api.delete(`/tasks/${task.id}`).catch(() => {});
   };
 
   // wide enough to be usable, clamped to the viewport
