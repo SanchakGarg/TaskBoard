@@ -24,6 +24,16 @@ export const initDb = async () => {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS pending_invitations (
+      email TEXT PRIMARY KEY,
+      target_id UUID NOT NULL,
+      target_type TEXT NOT NULL CHECK (target_type IN ('workspace','project')),
+      role TEXT NOT NULL CHECK (role IN ('admin','write','checker','read')),
+      invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS workspaces (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
@@ -173,9 +183,6 @@ export const initDb = async () => {
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_columns_project ON columns(project_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC)`;
-
-  // Note: Migration logic for SERIAL to UUID is skipped as per plan (fresh start recommended).
-  // If we needed to support it, we'd need complex casting.
 };
 
 export interface User {
@@ -217,6 +224,18 @@ export const upsertUser = async (u: {
     DO UPDATE SET email = excluded.email, name = excluded.name, avatar_url = excluded.avatar_url
     RETURNING *
   `;
+
+  // Process pending invitations
+  const pending = await sql<any[]>`SELECT * FROM pending_invitations WHERE email = ${u.email}`;
+  for (const p of pending) {
+    if (p.target_type === 'workspace') {
+       await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${p.target_id}, ${user!.id}, ${p.role}) ON CONFLICT DO NOTHING`;
+    } else {
+       await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${p.target_id}, ${user!.id}, ${p.role}) ON CONFLICT DO NOTHING`;
+    }
+  }
+  await sql`DELETE FROM pending_invitations WHERE email = ${u.email}`;
+
   return user!;
 };
 

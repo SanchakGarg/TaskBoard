@@ -288,7 +288,10 @@ apiRouter.post("/workspaces/:id/members", async (req, res) => {
   const role = req.body?.role;
   if (!email || !isRole(role)) return bad(res, "email and valid role required");
   const [target] = await sql<{ id: string }[]>`SELECT id FROM users WHERE lower(email) = ${email}`;
-  if (!target) return res.status(404).json({ error: "no user with that email has signed in yet" });
+  if (!target) {
+    await sql`INSERT INTO pending_invitations (email, target_id, target_type, role, invited_by) VALUES (${email}, ${id}, 'workspace', ${role}, ${u.id}) ON CONFLICT (email) DO UPDATE SET target_id = ${id}, target_type = 'workspace', role = ${role}, invited_by = ${u.id}`;
+    return res.status(201).json({ ok: true, pending: true });
+  }
   const [wsRow] = await sql<{ owner_id: string }[]>`SELECT owner_id FROM workspaces WHERE id = ${id}`;
   if (target.id === wsRow?.owner_id) return bad(res, "owner is already an admin");
   await sql`
@@ -453,13 +456,18 @@ apiRouter.get("/projects/:id/members", async (req, res) => {
 
 apiRouter.post("/projects/:id/members", async (req, res) => {
   const id = req.params.id;
+  const u = user(req);
+  if (!u) return forbidden(res);
   const role = await getProjectRole(req, id);
   if (role !== "admin") return forbidden(res);
   const email = str(req.body?.email, 200)?.trim().toLowerCase();
   const targetRole = req.body?.role;
   if (!email || !isRole(targetRole)) return bad(res, "email and valid role required");
   const [target] = await sql<{ id: string }[]>`SELECT id FROM users WHERE lower(email) = ${email}`;
-  if (!target) return res.status(404).json({ error: "no user with that email has signed in yet" });
+  if (!target) {
+    await sql`INSERT INTO pending_invitations (email, target_id, target_type, role, invited_by) VALUES (${email}, ${id}, 'project', ${targetRole}, ${u.id}) ON CONFLICT (email) DO UPDATE SET target_id = ${id}, target_type = 'project', role = ${targetRole}, invited_by = ${u.id}`;
+    return res.status(201).json({ ok: true, pending: true });
+  }
   
   const [pRow] = await sql<{ owner_id: string; name: string }[]>`SELECT owner_id, name FROM projects WHERE id = ${id}`;
   if (target.id === pRow?.owner_id) return bad(res, "owner is already an admin");
