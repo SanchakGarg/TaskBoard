@@ -83,6 +83,7 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
   };
 
   const hasTime = !!timePart && timePart !== "00:00";
+  const displayValue = hasTime ? value : datePart;
 
   return (
     <div ref={ref} className="relative inline-block">
@@ -96,7 +97,7 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
         } ${compact ? "" : "px-2 py-1 text-sm"}`}
       >
         <CalendarDays size={compact ? 11 : 14} />
-        {value || "Due date"}
+        {displayValue || "Due date"}
         {value && (
           <X
             size={11}
