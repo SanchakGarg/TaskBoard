@@ -187,8 +187,6 @@ export function App() {
     />
   );
 
-  const isPublic = view.kind === "public";
-
   return (
     <div className="graph-paper flex h-screen overflow-hidden">
       {/* desktop sidebar */}

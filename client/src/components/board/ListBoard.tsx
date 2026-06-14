@@ -17,8 +17,6 @@ import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
 interface ListBoardProps {
   projectId: string;
   role: Role;
