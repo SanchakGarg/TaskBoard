@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { Avatar, Button, Divider, Input, Modal, useConfirm } from "./ui";
+import { Avatar, Button, Divider, Input, Modal, Toggle, showToast, useConfirm } from "./ui";
+
 import { api } from "../lib/api";
 
 interface UserSettingsProps {
@@ -165,9 +166,9 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                     setTestingMail(true);
                     try {
                       await api.post("/test-mailer");
-                      await confirm("Test email sent successfully! Check your inbox.");
+                      showToast("Test email sent successfully! Check your inbox.", "success");
                     } catch (e: any) {
-                      await confirm(`Failed to send test email: ${e.message || "Unknown error"}`);
+                      showToast(`Failed to send test email: ${e.message || "Unknown error"}`, "error");
                     } finally {
                       setTestingMail(false);
                     }

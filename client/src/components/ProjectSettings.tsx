@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Copy, Link2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type { Member, Project, Role } from "../lib/types";
-import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, Toggle, useConfirm } from "./ui";
+import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, Toggle, showToast, useConfirm } from "./ui";
 
 interface Manager {
   id: string;
@@ -108,7 +108,7 @@ export function ProjectSettings({ project, role, onClose, onSaved }: ProjectSett
 
   const copyLink = () => {
     navigator.clipboard.writeText(shareUrl);
-    alert("Public link copied to clipboard!");
+    showToast("Public link copied to clipboard!", "success");
   };
 
   return (
