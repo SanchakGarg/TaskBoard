@@ -72,6 +72,8 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
 
   const moveTask = useCallback(
     (taskId: number, toColumn: number, position: number) => {
+      const targetCol = columns.find((c) => c.id === toColumn);
+      
       setTasks((prev) => {
         const task = prev.find((t) => t.id === taskId);
         if (!task) return prev;
@@ -81,7 +83,10 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
 
         return prev.map((t) => {
           if (t.id === taskId) {
-            return { ...t, column_id: toColumn, position };
+            const completed_at = targetCol?.is_done
+              ? (task.completed_at || new Date().toISOString())
+              : null;
+            return { ...t, column_id: toColumn, position, completed_at };
           }
           // Shift others in the source column up to fill the gap
           if (t.column_id === fromColumn && t.position > fromPosition) {
@@ -100,7 +105,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
         load();
       });
     },
-    [load]
+    [load, columns]
   );
 
   const { dragging, overColumn, dragProps, dropProps } = useBoardDrag(moveTask);
@@ -131,7 +136,6 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
         label: `Complete (move to ${doneColumn.name})`,
         icon: <CheckCircle2 size={14} />,
         onClick: () => {
-          setTasks((prev) => prev.map((x) => (x.id === task.id ? { ...x, column_id: doneColumn.id, completed_at: new Date().toISOString() } : x)));
           moveTask(task.id, doneColumn.id, tasks.filter((t) => t.column_id === doneColumn.id).length);
         }
       });

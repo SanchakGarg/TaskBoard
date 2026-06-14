@@ -42,7 +42,6 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   const canComplete = atLeast(role, "checker");
 
   const load = useCallback(async () => {
-    setIsInitialLoad(true);
     try {
       const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
         `/projects/${projectId}/board`
@@ -61,6 +60,7 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   }, [projectId]);
 
   useEffect(() => {
+    setIsInitialLoad(true);
     load();
   }, [load]);
 
