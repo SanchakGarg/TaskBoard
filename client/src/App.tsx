@@ -14,6 +14,7 @@ import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
 import { UserSettings } from "./components/UserSettings";
 import { PageLoader } from "./illustrations";
+import { setToastInstance, useToast } from "./components/ui/Toast";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/uuid, #/public/uuid
 const parseHash = (): View => {
@@ -33,6 +34,9 @@ const hashFor = (v: View) => {
 
 export function App() {
   const { user, loading } = useAuth();
+  const toastCtx = useToast();
+  setToastInstance(toastCtx);
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [view, setViewState] = useState<View>(parseHash);
@@ -107,9 +111,11 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
-  if (loading) return <PageLoader />;
-  if (!user && view.kind !== "public") return <Login />;
-  if (dataLoading && !hasLoadedOnce && view.kind !== "public") return <PageLoader />;
+  const isPublic = view.kind === "public";
+
+  if (loading && !isPublic) return <PageLoader />;
+  if (!user && !isPublic) return <Login />;
+  if (dataLoading && !hasLoadedOnce && !isPublic) return <PageLoader />;
 
   const navigate = (v: View) => {
     if (v.kind === "board") {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError } from "../lib/api";
 import type { User } from "../lib/types";
+import { showToast } from "../components/ui/Toast";
 
 interface AuthState {
   user: User | null;
@@ -30,11 +31,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const isPublic = window.location.hash.startsWith("#/public/");
+
     Promise.all([
-      api.get<User>("/auth/me").catch((e: unknown) => {
-        if (e instanceof ApiError && e.status === 401) return null;
-        throw e;
-      }),
+      isPublic
+        ? Promise.resolve(null)
+        : api.get<User>("/auth/me").catch((e: unknown) => {
+            if (e instanceof ApiError && e.status === 401) return null;
+            throw e;
+          }),
       api.get<{ providers: string[] }>("/auth/providers").catch((e) => {
         console.error("Failed to fetch providers:", e);
         return { providers: [] };
@@ -55,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post("/auth/logout");
       setUser(null);
     } catch (e) {
-      alert("Something went wrong while logging out.");
+      showToast("Something went wrong while logging out.", "error");
     }
   };
 
@@ -64,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedUser = await api.patch<User>("/auth/me", data);
       setUser(updatedUser);
     } catch (e) {
-      alert("Something went wrong. Please try again later.");
+      showToast("Something went wrong. Please try again later.", "error");
     }
   };
 

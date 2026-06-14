@@ -1,3 +1,5 @@
+import { showToast } from "../components/ui/Toast";
+
 export class ApiError extends Error {
   status: number;
 
@@ -35,9 +37,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     // The user requested detailed errors only in server logs.
     console.error(`API Error ${res.status}`);
     
-    // Simple pop-up for errors as requested.
-    // We avoid alert for 401 as it's handled by redirecting to login.
-    alert(message);
+    // Simple toast for errors as requested.
+    // We avoid toast for 401 as it's handled by redirecting to login.
+    showToast(message, "error");
     
     throw new ApiError(res.status, message);
   }
