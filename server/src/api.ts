@@ -550,7 +550,7 @@ apiRouter.delete("/tasks/:id", async (req, res) => {
 
 apiRouter.get("/tasks/mine", async (req, res) => {
   const rows = await sql<Task[]>`
-    SELECT DISTINCT t.*, c.project_id FROM tasks t
+    SELECT t.*, c.project_id FROM tasks t
     LEFT JOIN columns c ON c.id = t.column_id
     LEFT JOIN task_assignees ta ON ta.task_id = t.id
     WHERE (t.column_id IS NULL AND t.created_by = ${user(req).id}) OR ta.user_id = ${user(req).id}

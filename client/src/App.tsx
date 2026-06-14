@@ -73,7 +73,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
-  if (loading || dataLoading) return <PageLoader />;
+  if (loading || (user && dataLoading)) return <PageLoader />;
   if (!user) return <Login />;
 
   const navigate = (v: View) => {
