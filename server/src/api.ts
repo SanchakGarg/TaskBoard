@@ -480,9 +480,11 @@ apiRouter.patch("/projects/:id/members/:userId", async (req, res) => {
 });
 
 apiRouter.delete("/projects/:id/members/:userId", async (req, res) => {
-...
-
-// ---------- project managers ----------
+  const id = req.params.id;
+  if (await getProjectRole(req, id) !== "admin") return forbidden(res);
+  await sql`DELETE FROM project_members WHERE project_id = ${id} AND user_id = ${req.params.userId}`;
+  res.json({ ok: true });
+});
 
 apiRouter.get("/projects/:id/managers", async (req, res) => {
   const projectId = req.params.id;
