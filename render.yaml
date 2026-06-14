@@ -32,17 +32,17 @@ services:
       - key: ZITADEL_CLIENT_SECRET
         sync: false
       - key: SMTP_HOST
-        sync: false
+        value: smtp.gmail.com
       - key: SMTP_PORT
-        value: "587"
+        value: "465"
       - key: SMTP_SECURE
-        value: "false"
+        value: "true"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
-        sync: false
+        value: Taskboard <sanchakgargss@gmail.com>
 
   - type: cron
     name: taskboard-deadline-sweep
