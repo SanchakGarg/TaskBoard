@@ -185,7 +185,7 @@ export function App() {
         )}
         <main className="min-h-0 flex-1 overflow-y-auto">
           {view.kind === "mytasks" ? (
-            <MyTasksPage />
+            <MyTasksPage onNavigate={navigate} />
           ) : view.kind === "dashboard" ? (
             <Dashboard />
           ) : currentProject ? (

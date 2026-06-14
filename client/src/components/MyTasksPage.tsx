@@ -8,6 +8,7 @@ import { QuickAddTask } from "./board/QuickAddTask";
 import { CompletedSection } from "./board/CompletedSection";
 import { AvatarStack } from "./board/pickers";
 import { Coffee } from "../illustrations";
+import type { View } from "./Sidebar";
 
 type Filter = "open" | "today" | "overdue" | "all";
 
@@ -31,8 +32,12 @@ const filters: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+interface MyTasksPageProps {
+  onNavigate: (v: View) => void;
+}
+
 // Personal tasks + tasks assigned to me, across all workspaces.
-export function MyTasksPage() {
+export function MyTasksPage({ onNavigate }: MyTasksPageProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filter, setFilter] = useState<Filter>("open");
@@ -57,7 +62,7 @@ export function MyTasksPage() {
       case "open":
         return !t.completed_at;
       case "today":
-        return !t.completed_at && t.due_date === today();
+        return !t.completed_at && t.due_date?.startsWith(today());
       case "overdue":
         return !t.completed_at && !!t.due_date && t.due_date < today();
       case "all":
@@ -78,7 +83,13 @@ export function MyTasksPage() {
     return (
       <li
         key={t.id}
-        onDoubleClick={(e) => setEditing({ task: t, anchor: anchorFromEvent(e) })}
+        onDoubleClick={(e) => {
+          if (t.project_id) {
+            onNavigate({ kind: "board", projectId: t.project_id });
+          } else {
+            setEditing({ task: t, anchor: anchorFromEvent(e) });
+          }
+        }}
         className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
       >
         <span onClick={(e) => e.stopPropagation()}>
