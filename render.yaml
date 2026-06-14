@@ -46,9 +46,10 @@ services:
 
   - type: cron
     name: taskboard-deadline-sweep
-    runtime: docker
+    runtime: node
     schedule: "0 * * * *"    # every hour on the dot
-    dockerCommand: >
+    buildCommand: ""
+    startCommand: >
       curl -s -X POST https://taskboard.onrender.com/api/cron/sweep
       -H "x-cron-secret: $CRON_SECRET"
     envVars:
