@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { Avatar, Button, Divider, Input, Modal, Toggle, showToast, useConfirm } from "./ui";
+import { Avatar, Button, Divider, Input, Modal, showToast } from "./ui";
 
 import { api } from "../lib/api";
 
@@ -22,7 +22,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   );
   const [saving, setSaving] = useState(false);
   const [testingMail, setTestingMail] = useState(false);
-  const confirm = useConfirm();
 
   if (!user) return null;
 
