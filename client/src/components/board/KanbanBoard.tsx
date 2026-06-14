@@ -83,7 +83,8 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
 
         return prev.map((t) => {
           if (t.id === taskId) {
-            const completed_at = targetCol?.is_done
+            const isDone = targetCol?.is_done === 1;
+            const completed_at = isDone
               ? (task.completed_at || new Date().toISOString())
               : null;
             return { ...t, column_id: toColumn, position, completed_at };
@@ -100,10 +101,15 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
         });
       });
 
-      api.patch(`/tasks/${taskId}/move`, { columnId: toColumn, position }).catch(() => {
-        // On failure, reload to last known good state
-        load();
-      });
+      api.patch(`/tasks/${taskId}/move`, { columnId: toColumn, position })
+        .then(() => {
+          // background sync to get server-generated timestamps if needed
+          load().catch(() => {});
+        })
+        .catch(() => {
+          // On failure, reload to last known good state
+          load();
+        });
     },
     [load, columns]
   );
