@@ -25,12 +25,13 @@ const formatDeadline = (iso: string) => {
 };
 
 interface ListBoardProps {
-  projectId: number;
+  projectId: string;
   role: Role;
+  publicData?: { project: any; columns: Column[]; tasks: Task[] } | null;
 }
 
 // Single-list view for projects created as "list". Completion stays a checkbox here.
-export function ListBoard({ projectId, role }: ListBoardProps) {
+export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
@@ -50,8 +51,14 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   const canComplete = atLeast(role, "checker");
 
   const load = useCallback(async () => {
+    if (publicData) {
+      setColumns(publicData.columns);
+      setTasks(publicData.tasks);
+      setIsInitialLoad(false);
+      return;
+    }
     try {
-      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
+      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: string }>(
         `/projects/${projectId}/board`
       );
       setColumns(board.columns);
@@ -65,7 +72,7 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
     } finally {
       setIsInitialLoad(false);
     }
-  }, [projectId]);
+  }, [projectId, publicData]);
 
   useEffect(() => {
     setIsInitialLoad(true);
@@ -183,7 +190,7 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
                 setTasks((prev) => [...prev, newTask]);
                 setAdding(false);
                 // background refresh
-                load().catch(() => {});
+                if (!publicData) load().catch(() => {});
               }}
               onCancel={() => setAdding(false)}
             />

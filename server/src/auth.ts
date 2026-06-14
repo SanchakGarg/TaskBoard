@@ -89,17 +89,33 @@ export interface AuthedRequest extends Request {
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const shareId = req.headers["x-public-share-id"];
   const token = readCookie(req, SESSION_COOKIE);
-  if (!token) return res.status(401).json({ error: "unauthenticated" });
-  try {
-    const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-    const user = await getUser(Number(payload.sub));
-    if (!user) return res.status(401).json({ error: "unauthenticated" });
-    (req as AuthedRequest).user = user;
-    next();
-  } catch {
+
+  if (!token && !shareId) {
     return res.status(401).json({ error: "unauthenticated" });
   }
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
+      const user = await getUser(payload.sub);
+      if (user) {
+        (req as AuthedRequest).user = user;
+        return next();
+      }
+    } catch {
+      // invalid token, fall back to shareId check
+    }
+  }
+
+  if (shareId) {
+    // If only shareId is present, the request proceeds but req.user remains undefined.
+    // Downstream role checks must handle this "guest" state.
+    return next();
+  }
+
+  return res.status(401).json({ error: "unauthenticated" });
 }
 
 export const authRouter = Router();

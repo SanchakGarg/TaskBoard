@@ -6,10 +6,10 @@ import { mailEnabled, sendDeadlinePassed } from "./mailer";
 // Re-notifies only if the deadline was changed (deadline_notified_for tracks it).
 
 interface OverdueTask {
-  id: number;
+  id: string;
   title: string;
   dueDate: Date;
-  projectId: number;
+  projectId: string;
   projectName: string;
 }
 

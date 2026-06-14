@@ -6,7 +6,7 @@ import { Dropdown, Input } from "../ui";
 
 export default function MilestonesWidget() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [adding, setAdding] = useState("");
 
@@ -41,9 +41,9 @@ export default function MilestonesWidget() {
     <div className="flex flex-col gap-2">
       {projects.length > 1 && (
         <Dropdown
-          value={String(projectId)}
-          options={projects.map((p) => ({ value: String(p.id), label: p.name }))}
-          onChange={(v) => setProjectId(Number(v))}
+          value={projectId ?? ""}
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          onChange={setProjectId}
         />
       )}
 

@@ -7,10 +7,19 @@ export class ApiError extends Error {
   }
 }
 
+let publicShareId: string | null = null;
+export const setPublicShareId = (id: string | null) => {
+  publicShareId = id;
+};
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (publicShareId) headers["x-public-share-id"] = publicShareId;
+
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "same-origin",
   });

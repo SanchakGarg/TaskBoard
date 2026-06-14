@@ -251,13 +251,13 @@ export function AssigneePicker({
   onChange,
   members,
 }: {
-  selected: number[];
-  onChange: (ids: number[]) => void;
+  selected: string[];
+  onChange: (ids: string[]) => void;
   members: Member[];
 }) {
   const [open, setOpen] = useState(false);
 
-  const toggle = (id: number) =>
+  const toggle = (id: string) =>
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
 
   return (

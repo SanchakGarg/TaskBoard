@@ -6,20 +6,14 @@ import {
   List,
   Plus,
   Settings,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   FolderOpen,
   User,
 } from "lucide-react";
-import { Button, ContextMenu, Divider, Input, Modal, Tooltip, useConfirm, type ContextMenuItem } from "./ui";
+import { Button, ContextMenu, Divider, Input, Modal, Tooltip, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
-import type { Project, Workspace } from "../lib/types";
-
-export type View =
-  | { kind: "mytasks" }
-  | { kind: "dashboard" }
-  | { kind: "board"; projectId: number };
+import type { Project, Workspace, View } from "../lib/types";
 
 interface SidebarProps {
   workspaces: Workspace[];
@@ -27,9 +21,7 @@ interface SidebarProps {
   view: View;
   onNavigate: (view: View) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
-  onDeleteWorkspace: (id: number) => Promise<void>;
-  onCreateProject: (workspaceId: number, name: string, viewType: "kanban" | "list") => Promise<void>;
-  onDeleteProject: (id: number) => Promise<void>;
+  onCreateProject: (workspaceId: string, name: string, viewType: "kanban" | "list") => Promise<void>;
   onOpenSettings: (ws: Workspace) => void;
   onOpenProjectSettings: (p: Project) => void;
   onOpenUserSettings: () => void;
@@ -43,25 +35,22 @@ export function Sidebar({
   view,
   onNavigate,
   onCreateWorkspace,
-  onDeleteWorkspace,
   onCreateProject,
-  onDeleteProject,
   onOpenSettings,
   onOpenProjectSettings,
   onOpenUserSettings,
   collapsed,
   onToggle,
 }: SidebarProps) {
-  const confirm = useConfirm();
-  const [creatingIn, setCreatingIn] = useState<number | null>(null); // workspace id
+  const [creatingIn, setCreatingIn] = useState<string | null>(null); // workspace id
   const [creatingWs, setCreatingWs] = useState(false);
   const [name, setName] = useState("");
   const [wsName, setWsName] = useState("");
   const [viewType, setViewType] = useState<"kanban" | "list">("kanban");
-  const [closedWs, setClosedWs] = useState<Set<number>>(new Set());
+  const [closedWs, setClosedWs] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
 
-  const workspaceMenu = (ws: Workspace, projectCount: number): ContextMenuItem[] => {
+  const workspaceMenu = (ws: Workspace): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     if (ws.role === "admin")
       items.push({
@@ -74,20 +63,6 @@ export function Sidebar({
       icon: <Settings size={14} />,
       onClick: () => onOpenSettings(ws),
     });
-    if (ws.role === "admin")
-      items.push({
-        label: "Delete workspace",
-        icon: <Trash2 size={14} />,
-        danger: true,
-        onClick: async () => {
-          if (
-            await confirm(
-              `Delete workspace "${ws.name}" with its ${projectCount} project${projectCount === 1 ? "" : "s"} and all their tasks?`
-            )
-          )
-            onDeleteWorkspace(ws.id);
-        },
-      });
     return items;
   };
 
@@ -108,7 +83,7 @@ export function Sidebar({
     setCreatingWs(false);
   };
 
-  const toggleWs = (id: number) =>
+  const toggleWs = (id: string) =>
     setClosedWs((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -180,10 +155,10 @@ export function Sidebar({
                   <div
                     className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
                     onContextMenu={(e) => {
-                      // right-click a workspace → project creation, settings, delete
+                      // right-click a workspace → project creation, settings
                       e.preventDefault();
                       e.stopPropagation();
-                      setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws, wsProjects.length) });
+                      setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws) });
                     }}
                   >
                     <button
@@ -224,24 +199,17 @@ export function Sidebar({
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const items: ContextMenuItem[] = [
-                          {
-                            label: "Project settings",
-                            icon: <Settings size={14} />,
-                            onClick: () => onOpenProjectSettings(p),
-                          },
-                        ];
-                        if (ws.role === "admin")
-                          items.push({
-                            label: "Delete project",
-                            icon: <Trash2 size={14} />,
-                            danger: true,
-                            onClick: async () => {
-                              if (await confirm(`Delete project "${p.name}" and all its tasks?`))
-                                onDeleteProject(p.id);
+                        setMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          items: [
+                            {
+                              label: "Project settings",
+                              icon: <Settings size={14} />,
+                              onClick: () => onOpenProjectSettings(p),
                             },
-                          });
-                        setMenu({ x: e.clientX, y: e.clientY, items });
+                          ],
+                        });
                       }}
                     >
                       <NavItem
@@ -263,18 +231,6 @@ export function Sidebar({
                           >
                             <Settings size={13} />
                           </button>
-                          {ws.role === "admin" && (
-                            <button
-                              aria-label={`Delete ${p.name}`}
-                              onClick={async () => {
-                                if (await confirm(`Delete project "${p.name}" and all its tasks?`))
-                                  onDeleteProject(p.id);
-                              }}
-                              className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
                         </span>
                       )}
                     </div>

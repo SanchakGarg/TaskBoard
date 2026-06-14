@@ -221,6 +221,25 @@ export function WorkspaceSettings({ workspace, onClose, onSaved }: WorkspaceSett
             </ul>
           )}
         </section>
+        {/* ---------- delete ---------- */}
+        {isAdmin && (
+          <section className="mt-4 pt-4 border-t-2 border-pen-red/20">
+            <h3 className="font-hand mb-2 font-bold text-pen-red">Danger Zone</h3>
+            <Button
+              variant="secondary"
+              className="!border-pen-red !text-pen-red hover:!bg-pen-red hover:!text-white"
+              onClick={async () => {
+                if (await confirm(`Permanently delete workspace "${workspace.name}" and ALL its projects and tasks? This cannot be undone.`)) {
+                  await api.delete(`/workspaces/${workspace.id}`);
+                  onSaved();
+                  onClose();
+                }
+              }}
+            >
+              <Trash2 size={16} /> Delete Workspace
+            </Button>
+          </section>
+        )}
       </div>
     </Modal>
   );

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "./lib/api";
-import type { Project, Workspace } from "./lib/types";
+import { api, setPublicShareId } from "./lib/api";
+import type { Project, Workspace, View, Column, Task } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
-import { Sidebar, type View } from "./components/Sidebar";
+import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { Dashboard } from "./components/widgets/Dashboard";
 import { KanbanBoard } from "./components/board/KanbanBoard";
@@ -15,23 +15,31 @@ import { ProjectSettings } from "./components/ProjectSettings";
 import { UserSettings } from "./components/UserSettings";
 import { PageLoader } from "./illustrations";
 
-// view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/3
+// view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/uuid, #/public/uuid
 const parseHash = (): View => {
-  const m = window.location.hash.match(/^#\/board\/(\d+)$/);
-  if (m) return { kind: "board", projectId: Number(m[1]) };
+  const m = window.location.hash.match(/^#\/board\/([0-9a-f-]{36})$/);
+  if (m) return { kind: "board", projectId: m[1] };
+  const p = window.location.hash.match(/^#\/public\/([0-9a-f-]{36})$/);
+  if (p) return { kind: "public", shareId: p[1] };
   if (window.location.hash === "#/dashboard") return { kind: "dashboard" };
   return { kind: "mytasks" };
 };
 
-const hashFor = (v: View) =>
-  v.kind === "board" ? `#/board/${v.projectId}` : `#/${v.kind}`;
+const hashFor = (v: View) => {
+  if (v.kind === "board") return `#/board/${v.projectId}`;
+  if (v.kind === "public") return `#/public/${v.shareId}`;
+  return `#/${v.kind}`;
+};
 
 export function App() {
   const { user, loading } = useAuth();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [view, setViewState] = useState<View>(parseHash);
-  const [activeWs, setActiveWs] = useState<number | null>(null);
+  const [activeWs, setActiveWs] = useState<string | null>(null);
+
+  // For public projects
+  const [publicData, setPublicData] = useState<{ project: Project; columns: Column[]; tasks: Task[] } | null>(null);
 
   const setView = (v: View) => {
     setViewState(v);
@@ -59,7 +67,6 @@ export function App() {
       setHasLoadedOnce(true);
     } catch (e) {
       console.error("Failed to load initial data:", e);
-      alert("Something went wrong. Please refresh the page.");
     } finally {
       setDataLoading(false);
     }
@@ -68,6 +75,28 @@ export function App() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  const loadPublic = useCallback(async (shareId: string) => {
+    setDataLoading(true);
+    setPublicShareId(shareId);
+    try {
+      const data = await api.get<{ project: Project; columns: Column[]; tasks: Task[] }>(`/public/projects/${shareId}`);
+      setPublicData(data);
+    } catch (e) {
+      console.error("Failed to load public project:", e);
+      setPublicShareId(null);
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view.kind === "public") {
+      loadPublic(view.shareId);
+    } else {
+      setPublicShareId(null);
+    }
+  }, [view, loadPublic]);
 
   // after a reload onto a board, point the tab strip at that board's workspace
   useEffect(() => {
@@ -78,8 +107,9 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
-  if (loading || (user && dataLoading)) return <PageLoader />;
-  if (!user) return <Login />;
+  if (loading) return <PageLoader />;
+  if (!user && view.kind !== "public") return <Login />;
+  if (dataLoading && !hasLoadedOnce && view.kind !== "public") return <PageLoader />;
 
   const navigate = (v: View) => {
     if (v.kind === "board") {
@@ -96,44 +126,33 @@ export function App() {
     setActiveWs(ws.id);
   };
 
-  const deleteWorkspace = async (id: number) => {
-    await api.delete(`/workspaces/${id}`);
-    if (view.kind === "board" && projects.find((p) => p.id === view.projectId)?.workspace_id === id)
-      setView({ kind: "mytasks" });
-    if (activeWs === id) setActiveWs(null);
-    await loadAll();
-  };
-
-  const createProject = async (workspaceId: number, name: string, viewType: "kanban" | "list") => {
+  const createProject = async (workspaceId: string, name: string, viewType: "kanban" | "list") => {
     const p = await api.post<Project>("/projects", { name, viewType, workspaceId });
     await loadAll();
     setActiveWs(workspaceId);
     setView({ kind: "board", projectId: p.id });
   };
 
-  const deleteProject = async (id: number) => {
-    await api.delete(`/projects/${id}`);
-    if (view.kind === "board" && view.projectId === id) setView({ kind: "mytasks" });
-    loadAll();
-  };
-
-  const reorderProjects = (ids: number[]) => {
+  const reorderProjects = (ids: string[]) => {
     setProjects((prev) => [...prev].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)));
     api.patch("/projects/reorder", { ids });
   };
 
   const currentProject =
     view.kind === "board" ? projects.find((p) => p.id === view.projectId) : undefined;
-  const currentRole = currentProject
-    ? workspaces.find((w) => w.id === currentProject.workspace_id)?.role ?? "read"
-    : "read";
+  
+  const currentRole = 
+    view.kind === "public" ? publicData?.project.share_role ?? "read" :
+    currentProject ? (workspaces.find((w) => w.id === currentProject.workspace_id)?.role ?? "read") : "read";
 
   const title =
     view.kind === "mytasks"
       ? "My Tasks"
       : view.kind === "dashboard"
         ? "Dashboard"
-        : currentProject?.name ?? "Board";
+        : view.kind === "public"
+          ? publicData?.project.name ?? "Public Board"
+          : currentProject?.name ?? "Board";
 
   const tabProjects = projects.filter((p) => p.workspace_id === activeWs);
 
@@ -144,9 +163,7 @@ export function App() {
       view={view}
       onNavigate={navigate}
       onCreateWorkspace={createWorkspace}
-      onDeleteWorkspace={deleteWorkspace}
       onCreateProject={createProject}
-      onDeleteProject={deleteProject}
       onOpenSettings={(ws) => {
         setSettingsWs(ws);
         setDrawerOpen(false);
@@ -164,13 +181,15 @@ export function App() {
     />
   );
 
+  const isPublic = view.kind === "public";
+
   return (
     <div className="graph-paper flex h-screen overflow-hidden">
       {/* desktop sidebar */}
-      <div className="hidden md:block">{sidebar}</div>
+      {!isPublic && <div className="hidden md:block">{sidebar}</div>}
 
       {/* mobile drawer */}
-      {drawerOpen && (
+      {drawerOpen && !isPublic && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="anim-backdrop absolute inset-0 bg-ink/40" onClick={() => setDrawerOpen(false)} />
           <div className="absolute inset-y-0 left-0">{sidebar}</div>
@@ -178,8 +197,8 @@ export function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />
-        {view.kind !== "dashboard" && (
+        {!isPublic && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
+        {!isPublic && view.kind !== "dashboard" && (
           <Tabs
             projects={tabProjects}
             workspaceName={workspaces.find((w) => w.id === activeWs)?.name}
@@ -193,6 +212,14 @@ export function App() {
             <MyTasksPage onNavigate={navigate} />
           ) : view.kind === "dashboard" ? (
             <Dashboard />
+          ) : view.kind === "public" ? (
+            publicData ? (
+              publicData.project.view_type === "list" ? (
+                <ListBoard key={view.shareId} projectId={publicData.project.id} role={currentRole} publicData={publicData} />
+              ) : (
+                <KanbanBoard key={view.shareId} projectId={publicData.project.id} role={currentRole} publicData={publicData} />
+              )
+            ) : <PageLoader />
           ) : currentProject ? (
             currentProject.view_type === "list" ? (
               <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
@@ -213,7 +240,7 @@ export function App() {
       {settingsProject && (
         <ProjectSettings
           project={projects.find((p) => p.id === settingsProject.id) ?? settingsProject}
-          role={workspaces.find((w) => w.id === settingsProject.workspace_id)?.role ?? "read"}
+          role={currentRole}
           onClose={() => setSettingsProject(null)}
           onSaved={loadAll}
         />

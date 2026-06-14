@@ -18,17 +18,18 @@ import { QuickAddTask } from "./QuickAddTask";
 import { SketchArrow } from "../../illustrations";
 
 interface KanbanBoardProps {
-  projectId: number;
+  projectId: string;
   role: Role;
+  publicData?: { project: any; columns: Column[]; tasks: Task[] } | null;
 }
 
-export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
+export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
-  const [addingTo, setAddingTo] = useState<number | null>(null);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumn, setNewColumn] = useState("");
   const [search, setSearch] = useState("");
@@ -38,7 +39,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     task: Task;
     anchor: EditorAnchor;
   } | null>(null);
-  const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: number } | null>(null);
+  const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: string } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const confirm = useConfirm();
 
@@ -46,8 +47,14 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   const isAdmin = role === "admin";
 
   const load = useCallback(async () => {
+    if (publicData) {
+      setColumns(publicData.columns);
+      setTasks(publicData.tasks);
+      setIsInitialLoad(false);
+      return;
+    }
     try {
-      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
+      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: string }>(
         `/projects/${projectId}/board`
       );
       setColumns(board.columns);
@@ -61,7 +68,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     } finally {
       setIsInitialLoad(false);
     }
-  }, [projectId]);
+  }, [projectId, publicData]);
 
   useEffect(() => {
     setIsInitialLoad(true);
@@ -71,7 +78,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   const doneColumn = columns.find((c) => c.is_done);
 
   const moveTask = useCallback(
-    (taskId: number, toColumn: number, position: number) => {
+    (taskId: string, toColumn: string, position: number) => {
       const targetCol = columns.find((c) => c.id === toColumn);
       
       setTasks((prev) => {
@@ -168,21 +175,23 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
   };
 
   const createTask = async (
-    columnId: number,
-    data: { title: string; dueDate?: string; tags: string[]; priority: string; assignees: number[] }
+    columnId: string,
+    data: { title: string; dueDate?: string; tags: string[]; priority: string; assignees: string[] }
   ) => {
     const newTask = await api.post<Task>("/tasks", { columnId, ...data });
     // Optimistically add to local state — no full reload needed
     setTasks((prev) => [...prev, newTask]);
     setAddingTo(null);
     // Fetch fresh tags in background in case new ones were registered
-    api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(`/projects/${projectId}/board`)
-      .then((board) => {
-        setTasks(board.tasks);
-        return api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`);
-      })
-      .then(setTags)
-      .catch(() => {});
+    if (!publicData) {
+      api.get<{ columns: Column[]; tasks: Task[]; workspaceId: string }>(`/projects/${projectId}/board`)
+        .then((board) => {
+          setTasks(board.tasks);
+          return api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`);
+        })
+        .then(setTags)
+        .catch(() => {});
+    }
   };
 
   const createColumn = async () => {
@@ -327,7 +336,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
           );
         })}
 
-        {isAdmin && (
+        {isAdmin && !publicData && (
           <div className="w-64 shrink-0">
             {addingColumn ? (
               <form
@@ -344,7 +353,7 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
                   onChange={(e) => setNewColumn(e.target.value)}
                   onBlur={() => !newColumn.trim() && setAddingColumn(false)}
                 />
-                <Button type="submit" size="sm" disabled={!newColumn.trim()}>
+                <Button type="submit" size="sm" disabled={!name.trim()}>
                   Add column
                 </Button>
               </form>

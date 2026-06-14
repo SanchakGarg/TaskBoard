@@ -7,9 +7,11 @@ export const sql = postgres(config.databaseUrl, {
 });
 
 export const initDb = async () => {
+  await sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`;
+
   await sql`
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       provider TEXT NOT NULL,
       subject TEXT NOT NULL,
       email TEXT NOT NULL,
@@ -23,9 +25,9 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS workspaces (
-      id SERIAL PRIMARY KEY,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
-      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       position INTEGER NOT NULL DEFAULT 0,
       notifications_enabled INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -34,30 +36,41 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS projects (
-      id SERIAL PRIMARY KEY,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
-      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+      owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
       view_type TEXT NOT NULL DEFAULT 'kanban' CHECK (view_type IN ('kanban','list')),
       position INTEGER NOT NULL DEFAULT 0,
+      share_id UUID UNIQUE DEFAULT gen_random_uuid(),
+      share_role TEXT CHECK (share_role IN ('admin','write','checker','read')),
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS workspace_members (
-      workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       role TEXT NOT NULL CHECK (role IN ('admin','write','checker','read')),
       PRIMARY KEY (workspace_id, user_id)
     );
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS project_members (
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('admin','write','checker','read')),
+      PRIMARY KEY (project_id, user_id)
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS tags (
-      id SERIAL PRIMARY KEY,
-      workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       color TEXT NOT NULL,
       UNIQUE (workspace_id, name)
@@ -66,8 +79,8 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS columns (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       position INTEGER NOT NULL DEFAULT 0,
       is_done INTEGER NOT NULL DEFAULT 0
@@ -76,17 +89,16 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS tasks (
-      id SERIAL PRIMARY KEY,
-      column_id INTEGER REFERENCES columns(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      column_id UUID REFERENCES columns(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
       due_date TIMESTAMP,
       tags TEXT NOT NULL DEFAULT '[]',
-      assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       position INTEGER NOT NULL DEFAULT 0,
       completed_at TIMESTAMP,
-      created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       deadline_notified_for TIMESTAMP
@@ -95,24 +107,24 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS task_assignees (
-      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       PRIMARY KEY (task_id, user_id)
     );
   `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS project_managers (
-      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       PRIMARY KEY (project_id, user_id)
     );
   `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS notes (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL DEFAULT '',
       color TEXT NOT NULL DEFAULT 'yellow',
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -121,8 +133,8 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS milestones (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       due_date TIMESTAMP,
       done INTEGER NOT NULL DEFAULT 0,
@@ -132,9 +144,9 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS activity (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
       action TEXT NOT NULL,
       detail TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -143,7 +155,7 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS widget_layouts (
-      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       layout TEXT NOT NULL DEFAULT '[]',
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -151,7 +163,7 @@ export const initDb = async () => {
 
   await sql`
     CREATE TABLE IF NOT EXISTS focus (
-      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       goal TEXT NOT NULL DEFAULT '',
       date DATE NOT NULL DEFAULT CURRENT_DATE
     );
@@ -162,55 +174,12 @@ export const initDb = async () => {
   await sql`CREATE INDEX IF NOT EXISTS idx_columns_project ON columns(project_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC)`;
 
-  // Migrations logic
-  const hasColumn = async (table: string, column: string): Promise<boolean> => {
-    const result = await sql`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = ${table} AND column_name = ${column}
-    `;
-    return result.length > 0;
-  };
-
-  if (!(await hasColumn("projects", "view_type"))) {
-    await sql`ALTER TABLE projects ADD COLUMN view_type TEXT NOT NULL DEFAULT 'kanban'`;
-  }
-  if (!(await hasColumn("projects", "position"))) {
-    await sql`ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL DEFAULT 0`;
-  }
-  if (!(await hasColumn("projects", "workspace_id"))) {
-    await sql`ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE`;
-  }
-  if (!(await hasColumn("users", "theme_prefs"))) {
-    await sql`ALTER TABLE users ADD COLUMN theme_prefs TEXT NOT NULL DEFAULT '{}'`;
-  }
-
-  // Adopt orphan projects
-  const orphanOwners = await sql<{ owner_id: number }[]>`SELECT DISTINCT owner_id FROM projects WHERE workspace_id IS NULL`;
-  for (const { owner_id } of orphanOwners) {
-    const [ws] = await sql<{ id: number }[]>`
-      INSERT INTO workspaces (name, owner_id) VALUES ('My Workspace', ${owner_id}) RETURNING id
-    `;
-    if (!ws) continue;
-    await sql`UPDATE projects SET workspace_id = ${ws.id} WHERE owner_id = ${owner_id} AND workspace_id IS NULL`;
-  }
-
-  if (!(await hasColumn("columns", "is_done"))) {
-    await sql`ALTER TABLE columns ADD COLUMN is_done INTEGER NOT NULL DEFAULT 0`;
-    await sql`UPDATE columns SET is_done = 1 WHERE name = 'Done'`;
-  }
-  
-  if (!(await hasColumn("tasks", "deadline_notified_for"))) {
-    await sql`ALTER TABLE tasks ADD COLUMN deadline_notified_for TIMESTAMP`;
-  }
-
-  if (!(await hasColumn("workspaces", "notifications_enabled"))) {
-    await sql`ALTER TABLE workspaces ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 1`;
-  }
+  // Note: Migration logic for SERIAL to UUID is skipped as per plan (fresh start recommended).
+  // If we needed to support it, we'd need complex casting.
 };
 
 export interface User {
-  id: number;
+  id: string;
   provider: string;
   subject: string;
   email: string;
@@ -220,17 +189,16 @@ export interface User {
 }
 
 export interface Task {
-  id: number;
-  column_id: number | null;
+  id: string;
+  column_id: string | null;
   title: string;
   description: string;
   priority: "low" | "medium" | "high" | "urgent";
   due_date: string | null;
   tags: string;
-  assignee_id: number | null;
   position: number;
   completed_at: string | null;
-  created_by: number;
+  created_by: string;
   created_at: string;
   updated_at: string;
 }
@@ -252,14 +220,14 @@ export const upsertUser = async (u: {
   return user!;
 };
 
-export const getUser = async (id: number): Promise<User | null> => {
+export const getUser = async (id: string): Promise<User | null> => {
   const [user] = await sql<User[]>`SELECT * FROM users WHERE id = ${id}`;
   return user || null;
 };
 
 export const logActivity = async (
-  userId: number,
-  projectId: number | null,
+  userId: string,
+  projectId: string | null,
   action: string,
   detail = ""
 ) => {

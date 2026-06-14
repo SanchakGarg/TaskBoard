@@ -6,7 +6,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config";
 import { initAuth, authRouter } from "./auth";
-import { apiRouter } from "./api";
+import { apiRouter, publicApiRouter } from "./api";
 import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
 import { initDb } from "./db";
 import { mailEnabled } from "./mailer";
@@ -67,6 +67,7 @@ app.post("/api/cron/sweep", async (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/public", publicApiRouter);
 app.use("/api", apiRouter);
 
 // serve built frontend in production

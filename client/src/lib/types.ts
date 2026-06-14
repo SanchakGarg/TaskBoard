@@ -1,5 +1,5 @@
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string;
@@ -14,7 +14,7 @@ export const atLeast = (role: Role | null | undefined, min: Role): boolean =>
   !!role && roleRank[role] >= roleRank[min];
 
 export interface Workspace {
-  id: number;
+  id: string;
   name: string;
   position: number;
   created_at: string;
@@ -23,7 +23,7 @@ export interface Workspace {
 }
 
 export interface Member {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatar_url: string;
@@ -32,31 +32,33 @@ export interface Member {
 }
 
 export interface TagDef {
-  id: number;
-  workspace_id: number;
+  id: string;
+  workspace_id: string;
   name: string;
   color: string;
 }
 
 export interface Assignee {
-  id: number;
+  id: string;
   name: string;
   avatar_url: string;
 }
 
 export interface Project {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  workspace_id: number;
+  workspace_id: string;
   view_type: "kanban" | "list";
   position: number;
   created_at: string;
+  share_id?: string;
+  share_role?: Role;
 }
 
 export interface Column {
-  id: number;
-  project_id: number;
+  id: string;
+  project_id: string;
   name: string;
   position: number;
   is_done: number;
@@ -65,8 +67,8 @@ export interface Column {
 export type Priority = "low" | "medium" | "high" | "urgent";
 
 export interface Task {
-  id: number;
-  column_id: number | null;
+  id: string;
+  column_id: string | null;
   title: string;
   description: string;
   priority: Priority;
@@ -75,13 +77,13 @@ export interface Task {
   position: number;
   completed_at: string | null;
   created_at: string;
-  project_id?: number | null;
+  project_id?: string | null;
   assignees?: Assignee[];
 }
 
 export interface Milestone {
-  id: number;
-  project_id: number;
+  id: string;
+  project_id: string;
   title: string;
   due_date: string | null;
   done: number;
@@ -89,19 +91,25 @@ export interface Milestone {
 }
 
 export interface Note {
-  id: number;
+  id: string;
   content: string;
   color: string;
   updated_at: string;
 }
 
 export interface Activity {
-  id: number;
+  id: string;
   user_name: string;
   action: string;
   detail: string;
   created_at: string;
 }
+
+export type View =
+  | { kind: "mytasks" }
+  | { kind: "dashboard" }
+  | { kind: "board"; projectId: string }
+  | { kind: "public"; shareId: string };
 
 export interface WidgetInstance {
   id: string;

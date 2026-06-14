@@ -57,7 +57,7 @@ export function TaskEditor({
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(parseTags(task.tags));
-  const [assignees, setAssignees] = useState<number[]>(task.assignees?.map((a) => a.id) ?? []);
+  const [assignees, setAssignees] = useState<string[]>(task.assignees?.map((a) => a.id) ?? []);
 
   const save = () => {
     let finalDueDate: string | null = null;
@@ -68,8 +68,13 @@ export function TaskEditor({
       } else {
         // YYYY-MM-DD HH:mm (local)
         const [d, t] = dueDate.split(" ");
-        const [y, m, day] = d!.split("-").map(Number);
-        const [h, min] = (t || "00:00").split(":").map(Number);
+        const parts = d!.split("-").map(Number);
+        const y = parts[0];
+        const m = parts[1];
+        const day = parts[2];
+        const timeParts = (t || "00:00").split(":").map(Number);
+        const h = timeParts[0];
+        const min = timeParts[1];
         const date = new Date(y!, m! - 1, day!, h!, min!);
         finalDueDate = date.toISOString();
       }

@@ -9,7 +9,7 @@ interface QuickAddTaskProps {
     dueDate?: string;
     tags: string[];
     priority: Priority;
-    assignees: number[];
+    assignees: string[];
   }) => Promise<void>;
   onCancel: () => void;
   tags?: TagDef[]; // workspace tag registry (empty for personal tasks)
@@ -21,7 +21,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("low");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [assignees, setAssignees] = useState<number[]>([]);
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
