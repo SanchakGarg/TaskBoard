@@ -62,6 +62,10 @@ const taskCtx = async (taskId: number): Promise<TaskCtx | null> => {
 const taskRole = async (req: unknown, t: TaskCtx): Promise<Role | null> => {
   if (t.workspace_id === null)
     return t.created_by === user(req).id ? "write" : null;
+  const [row] = await sql<{ count: number }[]>`
+    SELECT COUNT(*) FROM task_assignees WHERE task_id = ${t.id} AND user_id = ${user(req).id}
+  `;
+  if (row && Number(row.count) > 0) return "write";
   return getRole(user(req).id, t.workspace_id);
 };
 
