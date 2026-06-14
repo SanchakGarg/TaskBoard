@@ -3,7 +3,11 @@ import { api } from "../../lib/api";
 import type { Task } from "../../lib/types";
 import { Badge, priorityTone } from "../ui";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 export default function MyTasksWidget() {
   const [tasks, setTasks] = useState<Task[]>([]);

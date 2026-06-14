@@ -1,15 +1,7 @@
 import { Clock, Flag } from "lucide-react";
 import { Badge, priorityTone } from "../ui";
-import { parseTags, type TagDef, type Task } from "../../lib/types";
+import { formatIST, parseTags, type TagDef, type Task } from "../../lib/types";
 import { AvatarStack, TagBadge } from "./pickers";
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const formatDeadline = (iso: string) => {
-  const d = new Date(iso);
-  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return time === "00:00" ? date : `${date} ${time}`;
-};
 
 interface TaskCardProps {
   task: Task;
@@ -52,7 +44,7 @@ export function TaskCard({
           {task.due_date && (
             <Badge tone={hasTime ? "red" : "blue"}>
               <Clock size={11} />
-              {formatDeadline(task.due_date)}
+              {formatIST(task.due_date)}
             </Badge>
           )}
           <span className="ml-auto">

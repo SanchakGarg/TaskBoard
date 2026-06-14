@@ -30,6 +30,35 @@ const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 
 const isRealEmail = (e: string) => e.includes("@") && !e.endsWith("@local");
 
+// ---------- IST formatting helper ----------
+
+export function formatIST(date: string | Date | null | undefined): string {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  // Intl.DateTimeFormat is reliable in Node.js 14+ for timezone conversion
+  const formatted = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+  
+  // If the time is exactly midnight, just show the date
+  if (formatted.toLowerCase().endsWith("12:00 am")) {
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(d);
+  }
+  
+  return formatted + " IST";
+}
+
 // ---------- app-styled HTML template (notebook look, inline styles) ----------
 
 interface Detail {
@@ -76,7 +105,7 @@ export function template(opts: {
         }
       </div>
       <div style="padding:12px 24px;border-top:2px dashed rgba(45,42,38,0.15);color:#6b645a;font-size:12px;">
-        Sent by Taskboard &mdash; your notebook for getting things done.
+        Sent by Taskboard &mdash; ${formatIST(new Date())}
       </div>
     </div>
   </div>
@@ -138,6 +167,7 @@ export function sendTaskAssigned(opts: {
   priority: string;
   assignedBy: string;
 }) {
+  const formattedDue = formatIST(opts.dueDate);
   const details: Detail[] = [
     { label: "Project", value: opts.projectName, color: "#4a7c59" },
     {
@@ -146,11 +176,11 @@ export function sendTaskAssigned(opts: {
       color: priorityColors[opts.priority],
     },
   ];
-  if (opts.dueDate) details.push({ label: "Due Date", value: opts.dueDate, color: "#2f5d9e" });
+  if (formattedDue) details.push({ label: "Due Date", value: formattedDue, color: "#2f5d9e" });
   void send({
     to: opts.to,
     subject: `Task Assigned: ${opts.taskTitle}`,
-    text: `${opts.assignedBy} assigned you the task "${opts.taskTitle}" in ${opts.projectName}.${opts.dueDate ? ` Due: ${opts.dueDate}.` : ""} Access it at ${appUrl}`,
+    text: `${opts.assignedBy} assigned you the task "${opts.taskTitle}" in ${opts.projectName}.${formattedDue ? ` Due: ${formattedDue}.` : ""} Access it at ${appUrl}`,
     html: template({
       heading: "New Task Assignment",
       intro: `You have been assigned a new task by <b>${opts.assignedBy}</b>.`,
@@ -168,15 +198,16 @@ export function sendDeadlinePassed(opts: {
   projectName: string;
   dueDate: string;
 }) {
+  const formattedDue = formatIST(opts.dueDate);
   void send({
     to: opts.to,
     cc: opts.cc,
     subject: `Overdue Task: ${opts.taskTitle}`,
-    text: `The task "${opts.taskTitle}" in ${opts.projectName} has passed its scheduled deadline (${opts.dueDate}). Please provide a status update: ${appUrl}`,
+    text: `The task "${opts.taskTitle}" in ${opts.projectName} has passed its scheduled deadline (${formattedDue}). Please provide a status update: ${appUrl}`,
     html: template({
       heading: "Overdue Task Notification",
       intro: `The task <b>"${opts.taskTitle}"</b> in <b>${opts.projectName}</b> has exceeded its scheduled deadline.`,
-      details: [{ label: "Deadline", value: opts.dueDate, color: "#c0533e" }],
+      details: [{ label: "Deadline", value: formattedDue, color: "#c0533e" }],
       note: "Please provide a status update or adjust the deadline on the board.",
       cta: { label: "Update Task", url: appUrl },
     }),

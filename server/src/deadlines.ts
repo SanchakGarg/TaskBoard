@@ -44,7 +44,7 @@ export async function runDeadlineSweep() {
         cc: managers.map((m) => m.email),
         taskTitle: task.title,
         projectName: task.projectName,
-        dueDate: task.dueDate.toISOString().split("T")[0]!,
+        dueDate: task.dueDate.toISOString(),
       });
     }
 

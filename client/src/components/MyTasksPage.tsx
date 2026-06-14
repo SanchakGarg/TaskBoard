@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Clock, Flag, Plus } from "lucide-react";
 import { api } from "../lib/api";
-import { parseTags, type Project, type Task } from "../lib/types";
+import { formatIST, parseTags, type Project, type Task } from "../lib/types";
 import { Badge, Checkbox, priorityTone } from "./ui";
 import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./board/TaskEditor";
 import { QuickAddTask } from "./board/QuickAddTask";
@@ -16,13 +16,6 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
-const formatDeadline = (iso: string) => {
-  const d = new Date(iso);
-  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return time === "00:00" ? date : `${date} ${time}`;
 };
 
 const filters: { id: Filter; label: string }[] = [
@@ -119,7 +112,7 @@ export function MyTasksPage({ onNavigate }: MyTasksPageProps) {
             return (
               <Badge tone={hasTime ? "red" : "blue"}>
                 <Clock size={11} />
-                {formatDeadline(t.due_date)}
+                {formatIST(t.due_date)}
               </Badge>
             );
           })()}

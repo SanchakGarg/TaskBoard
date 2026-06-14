@@ -3,6 +3,7 @@ import { Clock, Flag, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import {
   atLeast,
+  formatIST,
   parseTags,
   type Column,
   type Member,
@@ -17,12 +18,6 @@ import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const formatDeadline = (iso: string) => {
-  const d = new Date(iso);
-  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return time === "00:00" ? date : `${date} ${time}`;
-};
 
 interface ListBoardProps {
   projectId: string;
@@ -155,7 +150,7 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
              return (
                <Badge tone={hasTime ? "red" : "blue"}>
                  <Clock size={11} />
-                 {formatDeadline(t.due_date)}
+                 {formatIST(t.due_date)}
                </Badge>
              );
           })()}

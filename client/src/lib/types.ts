@@ -127,3 +127,32 @@ export const parseTags = (tags: string): string[] => {
     return [];
   }
 };
+
+export const formatIST = (iso: string | null | undefined): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  
+  // Intl.DateTimeFormat for browser
+  const formatted = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+  
+  // If the time is exactly midnight, just show the date
+  // Browser formatting might differ slightly from Node, but usually ends with 'am' or 'AM'
+  if (formatted.toLowerCase().endsWith("12:00 am")) {
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(d);
+  }
+  
+  return formatted;
+};

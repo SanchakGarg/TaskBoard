@@ -15,7 +15,8 @@ export default function BurndownWidget() {
   const days = Array.from({ length: DAYS }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (DAYS - 1 - i));
-    return d.toISOString().slice(0, 10);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   });
 
   // tasks that existed by end of `day` and weren't completed by then

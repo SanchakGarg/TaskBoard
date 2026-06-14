@@ -20,7 +20,7 @@ export default function CalendarWidget() {
   const first = new Date(month.y, month.m, 1);
   const daysInMonth = new Date(month.y, month.m + 1, 0).getDate();
   const startWeekday = (first.getDay() + 6) % 7; // Monday first
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}-${pad(new Date().getDate())}`;
 
   const dateStr = (day: number) => `${month.y}-${pad(month.m + 1)}-${pad(day)}`;
   const dueOn = (day: number) => tasks.filter((t) => t.due_date === dateStr(day) && !t.completed_at);
