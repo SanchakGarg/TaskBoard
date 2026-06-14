@@ -12,6 +12,8 @@ const transporter = mailEnabled
       port: Number(process.env.SMTP_PORT ?? 587),
       secure: process.env.SMTP_SECURE === "true",
       auth: user ? { user, pass: process.env.SMTP_PASS ?? "" } : undefined,
+      // Force IPv4 because IPv6 can be unreliable in cloud environments (ECONNREFUSED)
+      family: 4,
     })
   : null;
 
