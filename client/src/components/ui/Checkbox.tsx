@@ -6,12 +6,14 @@ interface CheckboxProps {
   onChange: (checked: boolean) => void;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function Checkbox({ checked, onChange, label, className = "" }: CheckboxProps) {
+export function Checkbox({ checked, onChange, label, className = "", disabled = false }: CheckboxProps) {
   const [justChecked, setJustChecked] = useState(false);
 
   const toggle = () => {
+    if (disabled) return;
     if (!checked) {
       setJustChecked(true);
       setTimeout(() => setJustChecked(false), 400);
@@ -20,13 +22,14 @@ export function Checkbox({ checked, onChange, label, className = "" }: CheckboxP
   };
 
   return (
-    <label className={`flex cursor-pointer select-none items-center gap-2 ${className}`}>
+    <label className={`flex select-none items-center gap-2 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${className}`}>
       <button
         type="button"
         role="checkbox"
         aria-checked={checked}
         onClick={toggle}
-        className={`anim-hover flex h-5 w-5 items-center justify-center rounded border-2 border-ink ${checked ? "bg-pen-green text-paper" : "bg-paper"} ${justChecked ? "anim-success" : ""}`}
+        disabled={disabled}
+        className={`anim-hover flex h-5 w-5 items-center justify-center rounded border-2 border-ink ${checked ? "bg-pen-green text-paper" : "bg-paper"} ${justChecked ? "anim-success" : ""} ${disabled ? "border-ink-soft bg-paper-dark" : ""}`}
       >
         {checked && <Check size={14} strokeWidth={3} />}
       </button>
