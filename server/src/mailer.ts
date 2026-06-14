@@ -174,16 +174,21 @@ export function sendDeadlinePassed(opts: {
 }
 
 export async function sendTestEmail(opts: { to: string }) {
-  if (!mailEnabled) throw new Error("SMTP is not configured on this server");
-  await send({
-    to: [opts.to],
+  if (!mailEnabled || !transporter) throw new Error("SMTP is not configured on this server");
+  const html = template({
+    heading: "SMTP Test Successful 🚀",
+    intro: "Your mailer configuration is working perfectly.",
+    details: [{ label: "Status", value: "Connected", color: "#4a7c59" }],
+    note: "You can safely ignore this email.",
+  });
+  
+  // We call transporter directly here instead of send() so we can catch and THROW the error 
+  // back to the API/UI, rather than swallowing it.
+  await transporter.sendMail({
+    from,
+    to: opts.to,
     subject: "Taskboard SMTP Connection Successful",
     text: "If you are reading this, your SMTP configuration is working perfectly.",
-    html: template({
-      heading: "SMTP Test Successful 🚀",
-      intro: "Your mailer configuration is working perfectly.",
-      details: [{ label: "Status", value: "Connected", color: "#4a7c59" }],
-      note: "You can safely ignore this email.",
-    }),
+    html
   });
 }
