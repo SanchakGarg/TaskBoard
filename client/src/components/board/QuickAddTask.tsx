@@ -25,9 +25,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // workspace tasks must be assigned to someone; personal tasks have no members
-  const requireAssignee = members.length > 0;
-  const canSubmit = !!title.trim() && (!requireAssignee || assignees.length > 0) && !submitting;
+  const canSubmit = !!title.trim() && !submitting;
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -115,10 +113,6 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
           })}
           <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
         </div>
-      )}
-
-      {requireAssignee && !!title.trim() && assignees.length === 0 && (
-        <p className="text-right text-xs text-pen-red">Assign at least one member</p>
       )}
     </form>
   );
