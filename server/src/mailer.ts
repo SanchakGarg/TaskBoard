@@ -50,8 +50,8 @@ export function template(opts: {
       (d) => `
       <tr>
         <td style="padding:6px 14px 6px 0;color:#6b645a;font-size:13px;white-space:nowrap;">${d.label}</td>
-        <td style="padding:6px 0;">
-          <span style="display:inline-block;border:1px solid ${d.color ?? "#6b645a"}66;background:${d.color ?? "#6b645a"}1a;color:${d.color ?? "#2d2a26"};border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600;">${d.value}</span>
+        <td style="padding:6px 0;color:#2d2a26;font-size:13px;font-weight:bold;">
+          ${d.value}
         </td>
       </tr>`
     )
@@ -62,7 +62,7 @@ export function template(opts: {
   <div style="background-color:#faf7ef;background-image:linear-gradient(#d9e4f0 1px,transparent 1px),linear-gradient(90deg,#d9e4f0 1px,transparent 1px);background-size:24px 24px;padding:32px 16px;font-family:ui-sans-serif,system-ui,'Segoe UI',sans-serif;color:#2d2a26;">
     <div style="max-width:520px;margin:0 auto;background:#faf7ef;border:2px solid #2d2a26;border-radius:14px;box-shadow:3px 4px 0 rgba(45,42,38,0.18);overflow:hidden;">
       <div style="padding:18px 24px;border-bottom:2px solid rgba(45,42,38,0.12);">
-        <span style="font-family:'Segoe Print','Comic Sans MS',cursive;font-size:20px;font-weight:bold;">&#128203; Taskboard</span>
+        <span style="font-family:'Segoe Print','Comic Sans MS',cursive;font-size:20px;font-weight:bold;">Taskboard</span>
       </div>
       <div style="padding:24px;">
         <h1 style="margin:0 0 10px;font-family:'Segoe Print','Comic Sans MS',cursive;font-size:22px;">${opts.heading}</h1>
@@ -111,13 +111,13 @@ export function sendWorkspaceInvite(opts: {
 }) {
   void send({
     to: [opts.to],
-    subject: `You've been added to "${opts.workspaceName}" on Taskboard`,
-    text: `${opts.invitedBy} added you to the workspace "${opts.workspaceName}" as ${opts.role}. Open ${appUrl} to get started.`,
+    subject: `Access Granted to Workspace: ${opts.workspaceName}`,
+    text: `${opts.invitedBy} granted you access to the workspace "${opts.workspaceName}" with ${opts.role} permissions. Visit ${appUrl} to access the workspace.`,
     html: template({
-      heading: "You're in! ✍️",
-      intro: `<b>${opts.invitedBy}</b> added you to the workspace <b>"${opts.workspaceName}"</b>.`,
-      details: [{ label: "Your role", value: opts.role, color: "#2f5d9e" }],
-      cta: { label: "Open Taskboard", url: appUrl },
+      heading: "Workspace Access Granted",
+      intro: `You have been granted access to the workspace <b>"${opts.workspaceName}"</b> by <b>${opts.invitedBy}</b>.`,
+      details: [{ label: "Access level", value: opts.role }],
+      cta: { label: "Open Workspace", url: appUrl },
     }),
   });
 }
@@ -146,17 +146,17 @@ export function sendTaskAssigned(opts: {
       color: priorityColors[opts.priority],
     },
   ];
-  if (opts.dueDate) details.push({ label: "Due", value: opts.dueDate, color: "#2f5d9e" });
+  if (opts.dueDate) details.push({ label: "Due Date", value: opts.dueDate, color: "#2f5d9e" });
   void send({
     to: opts.to,
-    subject: `Task assigned to you: ${opts.taskTitle}`,
-    text: `${opts.assignedBy} assigned you "${opts.taskTitle}" in ${opts.projectName}.${opts.dueDate ? ` Due ${opts.dueDate}.` : ""} Open ${appUrl}.`,
+    subject: `Task Assigned: ${opts.taskTitle}`,
+    text: `${opts.assignedBy} assigned you the task "${opts.taskTitle}" in ${opts.projectName}.${opts.dueDate ? ` Due: ${opts.dueDate}.` : ""} Access it at ${appUrl}`,
     html: template({
-      heading: opts.taskTitle,
-      intro: `<b>${opts.assignedBy}</b> assigned this task to you.`,
+      heading: "New Task Assignment",
+      intro: `You have been assigned a new task by <b>${opts.assignedBy}</b>.`,
       details,
       note: opts.description ? opts.description.slice(0, 300) : undefined,
-      cta: { label: "View task", url: appUrl },
+      cta: { label: "View Task", url: appUrl },
     }),
   });
 }
@@ -171,14 +171,14 @@ export function sendDeadlinePassed(opts: {
   void send({
     to: opts.to,
     cc: opts.cc,
-    subject: `Overdue: ${opts.taskTitle}`,
-    text: `The task "${opts.taskTitle}" in ${opts.projectName} passed its deadline (${opts.dueDate}) and is not completed. Please share an update and set a new deadline: ${appUrl}`,
+    subject: `Overdue Task: ${opts.taskTitle}`,
+    text: `The task "${opts.taskTitle}" in ${opts.projectName} has passed its scheduled deadline (${opts.dueDate}). Please provide a status update: ${appUrl}`,
     html: template({
-      heading: "This task is overdue ⏰",
-      intro: `<b>"${opts.taskTitle}"</b> in <b>${opts.projectName}</b> passed its deadline and hasn't been completed.`,
-      details: [{ label: "Was due", value: opts.dueDate, color: "#c0533e" }],
-      note: "Please share a status update and set a new deadline on the board.",
-      cta: { label: "Update the task", url: appUrl },
+      heading: "Overdue Task Notification",
+      intro: `The task <b>"${opts.taskTitle}"</b> in <b>${opts.projectName}</b> has exceeded its scheduled deadline.`,
+      details: [{ label: "Deadline", value: opts.dueDate, color: "#c0533e" }],
+      note: "Please provide a status update or adjust the deadline on the board.",
+      cta: { label: "Update Task", url: appUrl },
     }),
   });
 }
@@ -186,10 +186,10 @@ export function sendDeadlinePassed(opts: {
 export async function sendTestEmail(opts: { to: string }) {
   if (!mailEnabled || !transporter) throw new Error("SMTP is not configured on this server");
   const html = template({
-    heading: "SMTP Test Successful 🚀",
-    intro: "Your mailer configuration is working perfectly.",
-    details: [{ label: "Status", value: "Connected", color: "#4a7c59" }],
-    note: "You can safely ignore this email.",
+    heading: "SMTP Connection Test",
+    intro: "The mailer configuration has been verified successfully.",
+    details: [{ label: "Status", value: "Verified", color: "#4a7c59" }],
+    note: "This is an automated verification email.",
   });
   
   // We call transporter directly here instead of send() so we can catch and THROW the error 

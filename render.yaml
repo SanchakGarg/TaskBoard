@@ -34,9 +34,9 @@ services:
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
-        value: "587"
+        value: "465"
       - key: SMTP_SECURE
-        value: "false"
+        value: "true"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
@@ -47,7 +47,7 @@ services:
   - type: cron
     name: taskboard-deadline-sweep
     runtime: node
-    schedule: "0 * * * *"    # every hour on the dot
+    schedule: "* * * * *"    # every minute for precise deadlines
     buildCommand: ""
     startCommand: >
       curl -s -X POST https://taskboard.onrender.com/api/cron/sweep

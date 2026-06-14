@@ -3,6 +3,13 @@ import { Badge, priorityTone } from "../ui";
 import { parseTags, type TagDef, type Task } from "../../lib/types";
 import { AvatarStack, TagBadge } from "./pickers";
 
+const formatDeadline = (iso: string) => {
+  const d = new Date(iso);
+  const date = d.toISOString().slice(0, 10);
+  const time = d.toTimeString().slice(0, 5);
+  return time === "00:00" ? date : `${date} ${time}`;
+};
+
 interface TaskCardProps {
   task: Task;
   tags?: TagDef[];
@@ -21,6 +28,7 @@ export function TaskCard({
   onContextMenu,
 }: TaskCardProps) {
   const taskTags = parseTags(task.tags);
+  const hasTime = task.due_date && !task.due_date.endsWith("T00:00:00.000Z");
 
   return (
     <div
@@ -40,9 +48,9 @@ export function TaskCard({
             </Badge>
           )}
           {task.due_date && (
-            <Badge tone="red">
+            <Badge tone={hasTime ? "red" : "blue"}>
               <Clock size={11} />
-              {task.due_date}
+              {formatDeadline(task.due_date)}
             </Badge>
           )}
           <span className="ml-auto">

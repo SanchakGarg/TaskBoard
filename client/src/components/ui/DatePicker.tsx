@@ -1,27 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 interface DatePickerProps {
-  value: string; // "" or YYYY-MM-DD
+  value: string; // "" or YYYY-MM-DD or YYYY-MM-DD HH:mm
   onChange: (value: string) => void;
   compact?: boolean;
 }
 
-// App-styled calendar picker — replaces the native date input.
 export function DatePicker({ value, onChange, compact = false }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  const initial = value ? new Date(value + "T00:00:00") : new Date();
+
+  const [datePart, timePart] = value.split(" ");
+  const [hours, mins] = (timePart || "00:00").split(":").map(Number);
+
+  const initial = datePart ? new Date(datePart + "T00:00:00") : new Date();
   const [month, setMonth] = useState({ y: initial.getFullYear(), m: initial.getMonth() });
 
   const MENU_W = 224;
-  const MENU_H = 260;
+  const MENU_H = 320; // taller for time picker
 
   useLayoutEffect(() => {
     if (!open) {
@@ -65,12 +68,24 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
     setMonth({ y: d.getFullYear(), m: d.getMonth() });
   };
 
+  const updateTime = (h: number, m: number) => {
+    if (!datePart) return;
+    const t = `${pad(h)}:${pad(m)}`;
+    onChange(`${datePart} ${t}`);
+  };
+
+  const hasTime = !!timePart && timePart !== "00:00";
+
   return (
     <div ref={ref} className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`anim-hover flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs ${value ? "border-pen-blue/60 text-pen-blue" : "border-ink-soft/40 text-ink-soft hover:border-ink hover:text-ink"} ${compact ? "" : "px-2 py-1 text-sm"}`}
+        className={`anim-hover flex cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs ${
+          value 
+            ? (hasTime ? "border-pen-red/60 text-pen-red" : "border-pen-blue/60 text-pen-blue") 
+            : "border-ink-soft/40 text-ink-soft hover:border-ink hover:text-ink"
+        } ${compact ? "" : "px-2 py-1 text-sm"}`}
       >
         <CalendarDays size={compact ? 11 : 14} />
         {value || "Due date"}
@@ -92,56 +107,91 @@ export function DatePicker({ value, onChange, compact = false }: DatePickerProps
         <div
           ref={menuRef}
           data-popover
-          style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_W, zIndex: 60 }}
-          className="anim-modal rounded-lg border-2 border-ink bg-paper p-2 shadow-card-lift"
+          style={{ position: "fixed", left: pos.left, top: pos.top, width: MENU_W, zIndex: 110 }}
+          className="anim-modal flex flex-col gap-3 rounded-lg border-2 border-ink bg-paper p-2 shadow-card-lift"
         >
-          <div className="mb-1 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => shift(-1)}
-              className="anim-hover cursor-pointer rounded p-1 hover:bg-paper-dark"
-              aria-label="Previous month"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="font-hand text-sm font-bold">
-              {first.toLocaleString("default", { month: "long" })} {month.y}
-            </span>
-            <button
-              type="button"
-              onClick={() => shift(1)}
-              className="anim-hover cursor-pointer rounded p-1 hover:bg-paper-dark"
-              aria-label="Next month"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
-            {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-              <span key={i} className="py-0.5 text-ink-soft">
-                {d}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => shift(-1)}
+                className="anim-hover cursor-pointer rounded p-1 hover:bg-paper-dark"
+                aria-label="Previous month"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="font-hand text-sm font-bold">
+                {first.toLocaleString("default", { month: "long" })} {month.y}
               </span>
-            ))}
-            {Array.from({ length: startWeekday }).map((_, i) => (
-              <span key={`p${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const ds = dateStr(day);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => {
-                    onChange(ds);
-                    setOpen(false);
-                  }}
-                  className={`anim-hover cursor-pointer rounded py-1 hover:bg-paper-dark ${ds === todayStr() ? "sketch-border font-bold" : ""} ${ds === value ? "bg-ink text-paper" : ""}`}
-                >
-                  {day}
-                </button>
-              );
-            })}
+              <button
+                type="button"
+                onClick={() => shift(1)}
+                className="anim-hover cursor-pointer rounded p-1 hover:bg-paper-dark"
+                aria-label="Next month"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
+              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                <span key={i} className="py-0.5 text-ink-soft">
+                  {d}
+                </span>
+              ))}
+              {Array.from({ length: startWeekday }).map((_, i) => (
+                <span key={`p${i}`} />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const ds = dateStr(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => {
+                      onChange(ds + (timePart ? ` ${timePart}` : " 00:00"));
+                    }}
+                    className={`anim-hover cursor-pointer rounded py-1 hover:bg-paper-dark ${ds === todayStr() ? "sketch-border font-bold" : ""} ${ds === datePart ? "bg-ink text-paper" : ""}`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 border-t-2 border-ink/5 pt-2">
+            <Clock size={14} className="text-ink-soft" />
+            <div className="flex flex-1 items-center justify-center gap-1">
+              <select
+                value={hours}
+                onChange={(e) => updateTime(Number(e.target.value), mins!)}
+                disabled={!datePart}
+                className="cursor-pointer rounded bg-paper-dark px-1 py-0.5 text-xs font-bold outline-none"
+              >
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <option key={i} value={i}>{pad(i)}</option>
+                ))}
+              </select>
+              <span className="font-bold">:</span>
+              <select
+                value={mins}
+                onChange={(e) => updateTime(hours!, Number(e.target.value))}
+                disabled={!datePart}
+                className="cursor-pointer rounded bg-paper-dark px-1 py-0.5 text-xs font-bold outline-none"
+              >
+                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                  <option key={m} value={m}>{pad(m)}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="anim-hover rounded bg-ink px-2 py-0.5 text-xs font-bold text-paper hover:opacity-80"
+            >
+              OK
+            </button>
           </div>
         </div>,
         document.body

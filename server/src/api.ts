@@ -293,6 +293,7 @@ apiRouter.post("/projects", async (req, res) => {
     await sql`INSERT INTO columns (project_id, name, position, is_done) VALUES (${project!.id}, ${colName}, ${i}, ${isDone})`;
   }
   await logActivity(user(req).id, project!.id, "created project", name);
+  await sql`INSERT INTO project_managers (project_id, user_id) VALUES (${project!.id}, ${user(req).id})`;
   res.status(201).json(project);
 });
 
@@ -442,7 +443,7 @@ apiRouter.post("/tasks", async (req, res) => {
 
   if (workspaceId !== null && task) {
     await setAssignees(task.id, workspaceId, assigneeIds);
-    const notify = await emailsOf(assigneeIds.filter((id) => id !== user(req).id));
+    const notify = await emailsOf(assigneeIds);
     if (notify.length)
       sendTaskAssigned({
         to: notify,
@@ -496,7 +497,7 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
     const before = new Set(((await assigneesFor([existing.id])).get(existing.id) ?? []).map((a) => a.id));
     const after = await memberIdsOnly(existing.workspace_id, req.body.assignees);
     await setAssignees(existing.id, existing.workspace_id, after);
-    const added = after.filter((id) => !before.has(id) && id !== user(req).id);
+    const added = after.filter((id) => !before.has(id));
     const notify = await emailsOf(added);
     if (notify.length)
       sendTaskAssigned({

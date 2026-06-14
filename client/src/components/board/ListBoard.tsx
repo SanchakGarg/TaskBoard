@@ -16,6 +16,13 @@ import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
 
+const formatDeadline = (iso: string) => {
+  const d = new Date(iso);
+  const date = d.toISOString().slice(0, 10);
+  const time = d.toTimeString().slice(0, 5);
+  return time === "00:00" ? date : `${date} ${time}`;
+};
+
 interface ListBoardProps {
   projectId: number;
   role: Role;
@@ -134,9 +141,9 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
             </Badge>
           )}
           {t.due_date && (
-            <Badge tone="red">
+            <Badge tone={!t.due_date.endsWith("T00:00:00.000Z") ? "red" : "blue"}>
               <Clock size={11} />
-              {t.due_date}
+              {formatDeadline(t.due_date)}
             </Badge>
           )}
           <AvatarStack assignees={t.assignees ?? []} />

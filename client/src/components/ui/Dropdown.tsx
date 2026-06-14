@@ -77,7 +77,7 @@ export function Dropdown<T extends string>({
           <div
             ref={menuRef}
             data-popover
-            style={{ position: "fixed", left: pos.left, top: pos.top, width: pos.width, zIndex: 60 }}
+            style={{ position: "fixed", left: pos.left, top: pos.top, width: pos.width, zIndex: 110 }}
             className="anim-modal max-h-60 overflow-y-auto rounded-lg border-2 border-ink bg-paper shadow-card-lift"
           >
             {options.map((o) => (

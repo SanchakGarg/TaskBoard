@@ -22,7 +22,7 @@ export async function runDeadlineSweep() {
     JOIN projects p ON p.id = c.project_id
     WHERE t.completed_at IS NULL
       AND t.due_date IS NOT NULL
-      AND t.due_date::date < CURRENT_DATE
+      AND t.due_date <= CURRENT_TIMESTAMP
       AND (t.deadline_notified_for IS NULL OR t.deadline_notified_for::timestamp != t.due_date::timestamp)
   `;
 
@@ -59,6 +59,6 @@ export function startDeadlineWatcher() {
     return;
   }
   runDeadlineSweep().catch(console.error);
-  setInterval(() => runDeadlineSweep().catch(console.error), 60 * 60 * 1000);
-  console.log("Deadline watcher running (hourly)");
+  setInterval(() => runDeadlineSweep().catch(console.error), 60 * 1000);
+  console.log("Deadline watcher running (every minute)");
 }
