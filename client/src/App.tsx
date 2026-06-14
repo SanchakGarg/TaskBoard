@@ -43,10 +43,11 @@ export function App() {
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const [settingsUser, setSettingsUser] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
-    setDataLoading(true);
+    if (!hasLoadedOnce) setDataLoading(true);
     try {
       const [ws, ps] = await Promise.all([
         api.get<Workspace[]>("/workspaces"),
@@ -55,10 +56,11 @@ export function App() {
       setWorkspaces(ws);
       setProjects(ps);
       setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
+      setHasLoadedOnce(true);
     } finally {
       setDataLoading(false);
     }
-  }, [user]);
+  }, [user, hasLoadedOnce]);
 
   useEffect(() => {
     loadAll();

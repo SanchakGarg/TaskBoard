@@ -15,6 +15,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     credentials: "same-origin",
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      // Security: if unauthorized, force a reload to trigger login screen and clear local state
+      window.location.href = "/";
+      return new Promise(() => {}); // prevent further execution
+    }
     let message = res.statusText;
     try {
       message = ((await res.json()) as { error?: string }).error ?? message;
