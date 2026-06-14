@@ -540,8 +540,9 @@ apiRouter.patch("/tasks/:id/move", async (req, res) => {
 
   try {
     await sql.begin(async (sql) => {
+      const sourceCol = existing.column_id!;
       // Re-order source column (closing the gap)
-      await sql`UPDATE tasks SET position = position - 1 WHERE column_id = ${existing.column_id!} AND position > ${existing.position}`;
+      await sql`UPDATE tasks SET position = position - 1 WHERE column_id = ${sourceCol} AND position > ${existing.position}`;
       // Re-order target column (making space)
       await sql`UPDATE tasks SET position = position + 1 WHERE column_id = ${toColumn} AND position >= ${toPosition}`;
       // Move the task
@@ -557,7 +558,7 @@ apiRouter.patch("/tasks/:id/move", async (req, res) => {
     res.json({ ok: true });
   } catch (err: any) {
     console.error("Move task failed:", err);
-    res.status(500).json({ error: "failed to move task" });
+    res.status(500).json({ error: "failed to move task: " + (err.message || String(err)) });
   }
 });
 
