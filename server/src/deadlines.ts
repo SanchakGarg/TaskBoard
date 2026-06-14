@@ -20,10 +20,12 @@ export async function runDeadlineSweep() {
     FROM tasks t
     JOIN columns c ON c.id = t.column_id
     JOIN projects p ON p.id = c.project_id
+    JOIN workspaces w ON w.id = p.workspace_id
     WHERE t.completed_at IS NULL
       AND t.due_date IS NOT NULL
       AND t.due_date <= CURRENT_TIMESTAMP
       AND (t.deadline_notified_for IS NULL OR t.deadline_notified_for::timestamp != t.due_date::timestamp)
+      AND w.notifications_enabled = 1
   `;
 
   for (const task of overdue) {

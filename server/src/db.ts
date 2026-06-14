@@ -27,6 +27,7 @@ export const initDb = async () => {
       name TEXT NOT NULL,
       owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       position INTEGER NOT NULL DEFAULT 0,
+      notifications_enabled INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `;
@@ -201,6 +202,10 @@ export const initDb = async () => {
   
   if (!(await hasColumn("tasks", "deadline_notified_for"))) {
     await sql`ALTER TABLE tasks ADD COLUMN deadline_notified_for TIMESTAMP`;
+  }
+
+  if (!(await hasColumn("workspaces", "notifications_enabled"))) {
+    await sql`ALTER TABLE workspaces ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 1`;
   }
 };
 

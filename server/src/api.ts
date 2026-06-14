@@ -39,6 +39,13 @@ const projectWorkspace = async (projectId: number): Promise<number | null> => {
   return row?.workspace_id ?? null;
 };
 
+const areNotificationsEnabled = async (workspaceId: number): Promise<boolean> => {
+  const [row] = await sql<{ notifications_enabled: number }[]>`
+    SELECT notifications_enabled FROM workspaces WHERE id = ${workspaceId}
+  `;
+  return row?.notifications_enabled === 1;
+};
+
 const columnWorkspace = async (columnId: number): Promise<{ workspace_id: number; project_id: number } | null> => {
   const [row] = await sql<{ workspace_id: number; project_id: number }[]>`
     SELECT p.workspace_id, p.id AS project_id FROM columns c
@@ -170,9 +177,20 @@ apiRouter.post("/workspaces", async (req, res) => {
 apiRouter.patch("/workspaces/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (await getRole(user(req).id, id) !== "admin") return forbidden(res);
+  
   const name = str(req.body?.name, 100)?.trim();
-  if (!name) return bad(res, "name required");
-  const [row] = await sql`UPDATE workspaces SET name = ${name} WHERE id = ${id} RETURNING *`;
+  const notificationsEnabled = typeof req.body?.notificationsEnabled === "boolean"
+    ? (req.body.notificationsEnabled ? 1 : 0)
+    : undefined;
+
+  const [row] = await sql`
+    UPDATE workspaces 
+    SET 
+      name = COALESCE(${name ?? null}, name),
+      notifications_enabled = COALESCE(${notificationsEnabled ?? null}, notifications_enabled)
+    WHERE id = ${id} 
+    RETURNING *
+  `;
   res.json(row);
 });
 
@@ -214,8 +232,10 @@ apiRouter.post("/workspaces/:id/members", async (req, res) => {
     INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${target.id}, ${role})
     ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = excluded.role
   `;
-  const [ws] = await sql<{ name: string }[]>`SELECT name FROM workspaces WHERE id = ${id}`;
-  sendWorkspaceInvite({ to: email, workspaceName: ws?.name ?? "", role, invitedBy: user(req).name });
+  const [ws] = await sql<{ name: string; notifications_enabled: number }[]>`SELECT name, notifications_enabled FROM workspaces WHERE id = ${id}`;
+  if (ws?.notifications_enabled === 1) {
+    sendWorkspaceInvite({ to: email, workspaceName: ws?.name ?? "", role, invitedBy: user(req).name });
+  }
   res.status(201).json({ ok: true });
 });
 
@@ -444,7 +464,7 @@ apiRouter.post("/tasks", async (req, res) => {
   if (workspaceId !== null && task) {
     await setAssignees(task.id, workspaceId, assigneeIds);
     const notify = await emailsOf(assigneeIds);
-    if (notify.length)
+    if (notify.length && (await areNotificationsEnabled(workspaceId)))
       sendTaskAssigned({
         to: notify,
         taskTitle: task.title,
@@ -499,7 +519,7 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
     await setAssignees(existing.id, existing.workspace_id, after);
     const added = after.filter((id) => !before.has(id));
     const notify = await emailsOf(added);
-    if (notify.length)
+    if (notify.length && (await areNotificationsEnabled(existing.workspace_id)))
       sendTaskAssigned({
         to: notify,
         taskTitle: title,

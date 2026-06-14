@@ -19,6 +19,7 @@ export interface Workspace {
   position: number;
   created_at: string;
   role: Role;
+  notifications_enabled: number;
 }
 
 export interface Member {
