@@ -75,12 +75,20 @@ export function TaskEditor({
       }
     }
 
-    const updated = {
+    const updated: Partial<Task> = {
       title: title.trim() || task.title,
       description,
       priority,
       due_date: finalDueDate,
       tags: JSON.stringify(selectedTags),
+      assignees: assignees.map(id => {
+        const m = members.find(x => x.id === id);
+        return { 
+          id, 
+          name: m?.name ?? "Unknown", 
+          avatar_url: m?.avatar_url ?? "" 
+        };
+      })
     };
     // Close immediately (optimistic)
     onSave(updated);
