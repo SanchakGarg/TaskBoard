@@ -109,10 +109,6 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
       });
 
       api.patch(`/tasks/${taskId}/move`, { columnId: toColumn, position })
-        .then(() => {
-          // background sync to get server-generated timestamps if needed
-          load().catch(() => {});
-        })
         .catch(() => {
           // On failure, reload to last known good state
           load();
@@ -184,13 +180,8 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     setAddingTo(null);
     // Fetch fresh tags in background in case new ones were registered
     if (!publicData) {
-      api.get<{ columns: Column[]; tasks: Task[]; workspaceId: string }>(`/projects/${projectId}/board`)
-        .then((board) => {
-          setTasks(board.tasks);
-          return api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`);
-        })
-        .then(setTags)
-        .catch(() => {});
+      const board = await api.get<{ workspaceId: string }>(`/projects/${projectId}/board`);
+      api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`).then(setTags).catch(() => {});
     }
   };
 
@@ -269,7 +260,10 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
                     <Tooltip label="Make this the done column">
                       <button
                         aria-label={`Make ${col.name} the done column`}
-                        onClick={() => api.patch(`/columns/${col.id}/done`).then(load)}
+                        onClick={() => {
+                          setColumns(prev => prev.map(c => ({ ...c, is_done: c.id === col.id ? 1 : 0 })));
+                          api.patch(`/columns/${col.id}/done`).catch(load);
+                        }}
                         className="anim-hover cursor-pointer rounded p-1 text-ink-soft opacity-0 hover:text-pen-green group-hover/col:opacity-100"
                       >
                         <CheckCircle2 size={14} />

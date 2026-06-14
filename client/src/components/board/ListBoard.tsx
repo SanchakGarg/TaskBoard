@@ -189,8 +189,6 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
                 const newTask = await api.post<Task>("/tasks", { columnId: listColumn.id, ...data });
                 setTasks((prev) => [...prev, newTask]);
                 setAdding(false);
-                // background refresh
-                if (!publicData) load().catch(() => {});
               }}
               onCancel={() => setAdding(false)}
             />

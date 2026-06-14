@@ -164,8 +164,6 @@ export function MyTasksPage({ onNavigate }: MyTasksPageProps) {
               const newTask = await api.post<Task>("/tasks", data);
               setTasks((prev) => [...prev, newTask]);
               setAdding(false);
-              // background refresh
-              void load();
             }}
             onCancel={() => setAdding(false)}
           />

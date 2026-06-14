@@ -26,15 +26,24 @@ export default function MilestonesWidget() {
 
   if (!projects.length) return <p className="text-sm text-ink-soft">Create a project first.</p>;
 
-  const toggle = (m: Milestone) =>
-    api.patch(`/milestones/${m.id}`, { done: !m.done }).then(load);
+  const toggle = (m: Milestone) => {
+    setMilestones((prev) => prev.map((x) => (x.id === m.id ? { ...x, done: x.done ? 0 : 1 } : x)));
+    api.patch(`/milestones/${m.id}`, { done: !m.done }).catch(load);
+  };
 
   const add = async () => {
     const title = adding.trim();
     if (!title || projectId === null) return;
-    await api.post(`/projects/${projectId}/milestones`, { title });
+    const tempId = "temp-" + Math.random();
+    const newM: Milestone = { id: tempId, project_id: projectId, title, done: 0, position: milestones.length, due_date: null };
+    setMilestones((prev) => [...prev, newM]);
     setAdding("");
-    load();
+    try {
+      await api.post(`/projects/${projectId}/milestones`, { title });
+      load();
+    } catch {
+      load();
+    }
   };
 
   return (
@@ -59,7 +68,10 @@ export default function MilestonesWidget() {
             </button>
             <span className={m.done ? "text-ink-soft line-through" : ""}>{m.title}</span>
             <button
-              onClick={() => api.delete(`/milestones/${m.id}`).then(load)}
+              onClick={() => {
+                setMilestones((prev) => prev.filter((x) => x.id !== m.id));
+                api.delete(`/milestones/${m.id}`).catch(load);
+              }}
               aria-label="Delete milestone"
               className="anim-hover ml-auto cursor-pointer rounded p-0.5 text-ink-soft opacity-0 hover:text-pen-red group-hover:opacity-100"
             >

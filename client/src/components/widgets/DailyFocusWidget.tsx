@@ -14,9 +14,14 @@ export default function DailyFocusWidget() {
   }, []);
 
   const save = async () => {
-    await api.put("/focus", { goal: draft.trim() });
-    setGoal(draft.trim());
+    const trimmed = draft.trim();
+    setGoal(trimmed);
     setEditing(false);
+    try {
+      await api.put("/focus", { goal: trimmed });
+    } catch {
+      // toast or rollback if we had the old goal
+    }
   };
 
   if (editing) {
