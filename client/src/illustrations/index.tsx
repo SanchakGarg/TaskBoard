@@ -119,23 +119,6 @@ export function SpinningPencil({ className = "", size = 64 }: IllustrationProps)
 export function PageLoader() {
   return (
     <div className="graph-paper fixed inset-0 z-50 flex flex-col items-center justify-center gap-6">
-      {/* spinning pencil */}
-      <div
-        style={{
-          animation: "spin-pencil 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        }}
-      >
-        <SpinningPencil size={72} className="text-ink/80" />
-      </div>
-
-      {/* hand-written loading label */}
-      <p
-        className="font-hand text-xl text-ink/70"
-        style={{ animation: "fade-pulse 1.6s ease-in-out infinite" }}
-      >
-        loading your board…
-      </p>
-
       {/* wobbly dashed dots as progress indicator */}
       <div className="flex gap-3">
         {[0, 1, 2].map((i) => (

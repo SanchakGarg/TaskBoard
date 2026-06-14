@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { Avatar, Button, Divider, Input, Modal } from "./ui";
+import { Avatar, Button, Divider, Input, Modal, useConfirm } from "./ui";
+import { api } from "../lib/api";
 
 interface UserSettingsProps {
   onClose: () => void;
@@ -19,6 +20,8 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     user?.themePrefs || {}
   );
   const [saving, setSaving] = useState(false);
+  const [testingMail, setTestingMail] = useState(false);
+  const confirm = useConfirm();
 
   if (!user) return null;
 
@@ -144,6 +147,38 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             </div>
           </div>
         </section>
+
+        {user.email.toLowerCase() === "sanchakgargss@gmail.com" && (
+          <>
+            <Divider />
+            <section>
+              <h3 className="font-hand mb-3 font-bold">Admin Tools</h3>
+              <div className="flex items-center justify-between rounded-lg border-2 border-ink/30 bg-paper-dark p-4">
+                <div>
+                  <h4 className="font-bold">Test SMTP Connection</h4>
+                  <p className="text-sm text-ink-soft">Send a test email to verify mailer configuration.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  disabled={testingMail}
+                  onClick={async () => {
+                    setTestingMail(true);
+                    try {
+                      await api.post("/test-mailer");
+                      await confirm("Test email sent successfully! Check your inbox.");
+                    } catch (e: any) {
+                      await confirm(`Failed to send test email: ${e.message || "Unknown error"}`);
+                    } finally {
+                      setTestingMail(false);
+                    }
+                  }}
+                >
+                  {testingMail ? "Sending..." : "Send Test Email"}
+                </Button>
+              </div>
+            </section>
+          </>
+        )}
 
         {/* ---------- Actions ---------- */}
         <div className="mt-2 flex justify-end gap-2">

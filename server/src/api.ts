@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { sql, logActivity, type Task, type User } from "./db";
 import { requireAuth, type AuthedRequest } from "./auth";
-import { sendTaskAssigned, sendWorkspaceInvite } from "./mailer";
+import { sendTaskAssigned, sendWorkspaceInvite, sendTestEmail } from "./mailer";
 
 export const apiRouter = Router();
 apiRouter.use(requireAuth);
@@ -667,3 +667,18 @@ apiRouter.put("/widgets/layout", async (req, res) => {
   `;
   res.json({ ok: true });
 });
+
+apiRouter.post("/test-mailer", async (req, res) => {
+  const u = user(req);
+  if (u.email.toLowerCase() !== "sanchakgargss@gmail.com") {
+    return bad(res, "Unauthorized. Test mailer is only available to the admin.");
+  }
+  
+  try {
+    await sendTestEmail({ to: u.email });
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to send email" });
+  }
+});
+

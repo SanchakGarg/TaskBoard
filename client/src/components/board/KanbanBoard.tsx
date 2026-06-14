@@ -39,23 +39,29 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     anchor: EditorAnchor;
   } | null>(null);
   const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: number } | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const confirm = useConfirm();
 
   const canWrite = atLeast(role, "write");
   const isAdmin = role === "admin";
 
   const load = useCallback(async () => {
-    const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
-      `/projects/${projectId}/board`
-    );
-    setColumns(board.columns);
-    setTasks(board.tasks);
-    const [tagList, memberList] = await Promise.all([
-      api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`),
-      api.get<Member[]>(`/workspaces/${board.workspaceId}/members`),
-    ]);
-    setTags(tagList);
-    setMembers(memberList);
+    setIsInitialLoad(true);
+    try {
+      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
+        `/projects/${projectId}/board`
+      );
+      setColumns(board.columns);
+      setTasks(board.tasks);
+      const [tagList, memberList] = await Promise.all([
+        api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`),
+        api.get<Member[]>(`/workspaces/${board.workspaceId}/members`),
+      ]);
+      setTags(tagList);
+      setMembers(memberList);
+    } finally {
+      setIsInitialLoad(false);
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -101,8 +107,10 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
       items.push({
         label: `Complete (move to ${doneColumn.name})`,
         icon: <CheckCircle2 size={14} />,
-        onClick: () =>
-          moveTask(task.id, doneColumn.id, tasks.filter((t) => t.column_id === doneColumn.id).length),
+        onClick: () => {
+          setTasks((prev) => prev.map((x) => (x.id === task.id ? { ...x, column_id: doneColumn.id, completed_at: new Date().toISOString() } : x)));
+          moveTask(task.id, doneColumn.id, tasks.filter((t) => t.column_id === doneColumn.id).length);
+        }
       });
     if (next && canWrite && next.id !== task.column_id)
       items.push({
@@ -117,8 +125,10 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
         icon: <Trash2 size={14} />,
         danger: true,
         onClick: async () => {
-          if (await confirm(`Delete task "${task.title}"?`))
-            api.delete(`/tasks/${task.id}`).then(load);
+          if (await confirm(`Delete task "${task.title}"?`)) {
+            setTasks((prev) => prev.filter((t) => t.id !== task.id));
+            api.delete(`/tasks/${task.id}`).catch(load);
+          }
         },
       });
     return items;
@@ -150,6 +160,22 @@ export function KanbanBoard({ projectId, role }: KanbanBoardProps) {
     setAddingColumn(false);
     load();
   };
+
+  if (isInitialLoad && columns.length === 0) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex flex-1 gap-4 overflow-x-auto p-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex h-fit w-72 shrink-0 flex-col gap-3 rounded-xl border-2 border-ink/10 bg-paper/50 p-3">
+              <div className="h-6 w-32 rounded bg-ink/10 animate-pulse"></div>
+              <div className="h-24 w-full rounded-lg bg-ink/5 animate-pulse"></div>
+              <div className="h-24 w-full rounded-lg bg-ink/5 animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

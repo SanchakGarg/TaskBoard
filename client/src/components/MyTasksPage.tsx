@@ -27,10 +27,14 @@ export function MyTasksPage() {
   const [filter, setFilter] = useState<Filter>("open");
   const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const load = useCallback(() => {
-    api.get<Task[]>("/tasks/mine").then(setTasks);
-    api.get<Project[]>("/projects").then(setProjects);
+    setIsInitialLoad(true);
+    Promise.all([
+      api.get<Task[]>("/tasks/mine").then(setTasks),
+      api.get<Project[]>("/projects").then(setProjects)
+    ]).finally(() => setIsInitialLoad(false));
   }, []);
 
   useEffect(load, [load]);
@@ -52,8 +56,12 @@ export function MyTasksPage() {
 
   const completedBelow = filter === "open" ? tasks.filter((t) => t.completed_at) : [];
 
-  const toggleComplete = (t: Task, done: boolean) =>
-    api.patch(`/tasks/${t.id}`, { completed: done }).then(load);
+  const toggleComplete = (t: Task, done: boolean) => {
+    setTasks((prev) =>
+      prev.map((x) => (x.id === t.id ? { ...x, completed_at: done ? new Date().toISOString() : null } : x))
+    );
+    api.patch(`/tasks/${t.id}`, { completed: done }).catch(load);
+  };
 
   const row = (t: Task) => {
     const personal = t.column_id === null;
@@ -97,6 +105,18 @@ export function MyTasksPage() {
       </li>
     );
   };
+
+  if (isInitialLoad && tasks.length === 0) {
+    return (
+      <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">
+        <div className="flex flex-col gap-2 mt-12">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-14 w-full rounded-lg border-2 border-ink/10 bg-paper/50 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">

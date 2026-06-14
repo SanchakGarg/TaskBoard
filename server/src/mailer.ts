@@ -172,3 +172,18 @@ export function sendDeadlinePassed(opts: {
     }),
   });
 }
+
+export async function sendTestEmail(opts: { to: string }) {
+  if (!mailEnabled) throw new Error("SMTP is not configured on this server");
+  await send({
+    to: [opts.to],
+    subject: "Taskboard SMTP Connection Successful",
+    text: "If you are reading this, your SMTP configuration is working perfectly.",
+    html: template({
+      heading: "SMTP Test Successful 🚀",
+      intro: "Your mailer configuration is working perfectly.",
+      details: [{ label: "Status", value: "Connected", color: "#4a7c59" }],
+      note: "You can safely ignore this email.",
+    }),
+  });
+}

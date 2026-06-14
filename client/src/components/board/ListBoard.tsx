@@ -35,23 +35,29 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
     task: Task;
     anchor: EditorAnchor;
   } | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const confirm = useConfirm();
 
   const canWrite = atLeast(role, "write");
   const canComplete = atLeast(role, "checker");
 
   const load = useCallback(async () => {
-    const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
-      `/projects/${projectId}/board`
-    );
-    setColumns(board.columns);
-    setTasks(board.tasks);
-    const [tagList, memberList] = await Promise.all([
-      api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`),
-      api.get<Member[]>(`/workspaces/${board.workspaceId}/members`),
-    ]);
-    setTags(tagList);
-    setMembers(memberList);
+    setIsInitialLoad(true);
+    try {
+      const board = await api.get<{ columns: Column[]; tasks: Task[]; workspaceId: number }>(
+        `/projects/${projectId}/board`
+      );
+      setColumns(board.columns);
+      setTasks(board.tasks);
+      const [tagList, memberList] = await Promise.all([
+        api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`),
+        api.get<Member[]>(`/workspaces/${board.workspaceId}/members`),
+      ]);
+      setTags(tagList);
+      setMembers(memberList);
+    } finally {
+      setIsInitialLoad(false);
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -62,8 +68,12 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
   const open = tasks.filter((t) => !t.completed_at).sort((a, b) => a.position - b.position);
   const done = tasks.filter((t) => t.completed_at).sort((a, b) => a.position - b.position);
 
-  const toggleComplete = (t: Task, completed: boolean) =>
-    api.patch(`/tasks/${t.id}`, { completed }).then(load);
+  const toggleComplete = (t: Task, completed: boolean) => {
+    setTasks((prev) =>
+      prev.map((x) => (x.id === t.id ? { ...x, completed_at: completed ? new Date().toISOString() : null } : x))
+    );
+    api.patch(`/tasks/${t.id}`, { completed }).catch(load);
+  };
 
   const menuItems = (task: Task, anchor: EditorAnchor): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
@@ -79,8 +89,10 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
         icon: <Trash2 size={14} />,
         danger: true,
         onClick: async () => {
-          if (await confirm(`Delete task "${task.title}"?`))
-            api.delete(`/tasks/${task.id}`).then(load);
+          if (await confirm(`Delete task "${task.title}"?`)) {
+            setTasks((prev) => prev.filter((t) => t.id !== task.id));
+            api.delete(`/tasks/${task.id}`).catch(load);
+          }
         },
       });
     return items;
@@ -132,6 +144,18 @@ export function ListBoard({ projectId, role }: ListBoardProps) {
       </li>
     );
   };
+
+  if (isInitialLoad && columns.length === 0) {
+    return (
+      <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">
+        <div className="flex flex-col gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-14 w-full rounded-lg border-2 border-ink/10 bg-paper/50 animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">
