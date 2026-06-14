@@ -11,6 +11,9 @@ import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
 import { initDb } from "./db";
 import { mailEnabled } from "./mailer";
 
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
+
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1); // behind nginx/caddy reverse proxy
