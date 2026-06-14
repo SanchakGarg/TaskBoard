@@ -387,7 +387,7 @@ apiRouter.patch("/columns/:id/done", async (req, res) => {
   if (await getRole(user(req).id, ctx.workspace_id) !== "admin") return forbidden(res);
   await sql`UPDATE columns SET is_done = 0 WHERE project_id = ${ctx.project_id}`;
   await sql`UPDATE columns SET is_done = 1 WHERE id = ${Number(req.params.id)}`;
-  await sql`UPDATE tasks SET completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP) WHERE column_id = ${Number(req.params.id)}`;
+  await sql`UPDATE tasks SET completed_at = COALESCE(completed_at::timestamp, CURRENT_TIMESTAMP::timestamp) WHERE column_id = ${Number(req.params.id)}`;
   await sql`UPDATE tasks SET completed_at = NULL WHERE column_id IN (SELECT id FROM columns WHERE project_id = ${ctx.project_id} AND is_done = 0)`;
   res.json({ ok: true });
 });
@@ -436,7 +436,7 @@ apiRouter.post("/tasks", async (req, res) => {
   const [task] = await sql<Task[]>`
     INSERT INTO tasks (column_id, title, description, priority, due_date, tags, position, created_by)
     VALUES (${columnId}, ${title}, ${str(req.body?.description, 10000) ?? ""}, ${priority},
-            ${str(req.body?.dueDate, 30) ?? null}, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${user(req).id})
+            ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${user(req).id})
     RETURNING *
   `;
 
@@ -488,7 +488,7 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
 
   const [task] = await sql<Task[]>`
     UPDATE tasks SET title = ${title}, description = ${description}, priority = ${priority},
-    due_date = ${dueDate ?? null}, tags = ${tags}, completed_at = ${completedAt ?? null},
+    due_date = ${dueDate ?? null}::timestamp, tags = ${tags}, completed_at = ${completedAt ?? null}::timestamp,
     updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id} RETURNING *
   `;
 
@@ -601,7 +601,7 @@ apiRouter.post("/projects/:id/milestones", async (req, res) => {
   const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM milestones WHERE project_id = ${projectId}`;
   const [row] = await sql`
     INSERT INTO milestones (project_id, title, due_date, position)
-    VALUES (${projectId}, ${title}, ${str(req.body?.dueDate, 30) ?? null}, ${nextRow?.p ?? 0}) RETURNING *
+    VALUES (${projectId}, ${title}, ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${nextRow?.p ?? 0}) RETURNING *
   `;
   res.status(201).json(row);
 });
