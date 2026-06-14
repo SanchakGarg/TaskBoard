@@ -75,7 +75,6 @@ export function MyTasksPage() {
   };
 
   const row = (t: Task) => {
-    const personal = t.column_id === null;
     return (
       <li
         key={t.id}

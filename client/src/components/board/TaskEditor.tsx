@@ -116,8 +116,6 @@ export function TaskEditor({
   const left = Math.min(Math.max(8, anchor.left), window.innerWidth - width - 8);
   const top = Math.min(Math.max(8, anchor.top), Math.max(8, window.innerHeight - 360));
 
-  const hasTime = dueDate && dueDate.includes(" ") && !dueDate.endsWith("00:00");
-
   return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-ink/10" onMouseDown={onCancel} />
