@@ -19,11 +19,13 @@ import { PageLoader } from "./illustrations";
 import { setToastInstance, useToast } from "./components/ui/Toast";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { About } from "./components/About";
+import { TermsOfService } from "./components/TermsOfService";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/uuid, #/public/uuid
 const parseHash = (): View => {
   if (window.location.hash === "#/privacy") return { kind: "privacy" };
   if (window.location.hash === "#/about") return { kind: "about" };
+  if (window.location.hash === "#/tos") return { kind: "tos" };
   const m = window.location.hash.match(/^#\/board\/([0-9a-f-]{36})$/);
   if (m) return { kind: "board", projectId: m[1] };
   const p = window.location.hash.match(/^#\/public\/([0-9a-f-]{36})$/);
@@ -37,6 +39,7 @@ const hashFor = (v: View) => {
   if (v.kind === "public") return `#/public/${v.shareId}`;
   if (v.kind === "privacy") return `#/privacy`;
   if (v.kind === "about") return `#/about`;
+  if (v.kind === "tos") return `#/tos`;
   return `#/${v.kind}`;
 };
 
@@ -124,10 +127,11 @@ export function App() {
   const isPublic = view.kind === "public";
   const isPrivacy = view.kind === "privacy";
   const isAbout = view.kind === "about";
+  const isTos = view.kind === "tos";
 
-  if (loading && !isPublic && !isPrivacy && !isAbout) return <PageLoader />;
-  if (!user && !isPublic && !isPrivacy && !isAbout) return <Login />;
-  if (dataLoading && !hasLoadedOnce && !isPublic && !isPrivacy && !isAbout) return <PageLoader />;
+  if (loading && !isPublic && !isPrivacy && !isAbout && !isTos) return <PageLoader />;
+  if (!user && !isPublic && !isPrivacy && !isAbout && !isTos) return <Login />;
+  if (dataLoading && !hasLoadedOnce && !isPublic && !isPrivacy && !isAbout && !isTos) return <PageLoader />;
 
   const navigate = (v: View) => {
     if (v.kind === "board") {
@@ -210,10 +214,10 @@ export function App() {
   return (
     <div className="graph-paper flex h-screen overflow-hidden">
       {/* desktop sidebar */}
-      {(!isPublic && !isPrivacy && !isAbout) && <div className="hidden md:block">{sidebar}</div>}
+      {(!isPublic && !isPrivacy && !isAbout && !isTos) && <div className="hidden md:block">{sidebar}</div>}
 
       {/* mobile drawer */}
-      {drawerOpen && (!isPublic && !isPrivacy && !isAbout) && (
+      {drawerOpen && (!isPublic && !isPrivacy && !isAbout && !isTos) && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="anim-backdrop absolute inset-0 bg-ink/40" onClick={() => setDrawerOpen(false)} />
           <div className="absolute inset-y-0 left-0">{sidebar}</div>
@@ -221,8 +225,8 @@ export function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {(!isPublic && !isPrivacy && !isAbout) && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
-        {(!isPublic && !isPrivacy && !isAbout) && view.kind !== "dashboard" && (
+        {(!isPublic && !isPrivacy && !isAbout && !isTos) && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
+        {(!isPublic && !isPrivacy && !isAbout && !isTos) && view.kind !== "dashboard" && (
           <Tabs
             projects={tabProjects}
             workspaceName={workspaces.find((w) => w.id === activeWs)?.name}
@@ -236,6 +240,8 @@ export function App() {
             <PrivacyPolicy />
           ) : view.kind === "about" ? (
             <About />
+          ) : view.kind === "tos" ? (
+            <TermsOfService />
           ) : view.kind === "mytasks" ? (
             <MyTasksPage onNavigate={navigate} />
           ) : view.kind === "dashboard" ? (

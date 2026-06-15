@@ -58,6 +58,7 @@ export function Login() {
 
         <div className="mt-8 pt-6 border-t border-ink/10 text-xs text-ink-soft flex justify-center gap-4">
           <a href="#/about" className="hover:underline hover:text-ink transition-colors">About</a>
+          <a href="#/tos" className="hover:underline hover:text-ink transition-colors">Terms</a>
           <a href="#/privacy" className="hover:underline hover:text-ink transition-colors">Privacy Policy</a>
         </div>
       </Card>

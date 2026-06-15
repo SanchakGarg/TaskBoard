@@ -117,7 +117,8 @@ export type View =
   | { kind: "board"; projectId: string }
   | { kind: "public"; shareId: string }
   | { kind: "privacy" }
-  | { kind: "about" };
+  | { kind: "about" }
+  | { kind: "tos" };
 
 export interface WidgetInstance {
   id: string;

@@ -35,6 +35,7 @@ export function About() {
         </section>
 
         <div className="mt-8 pt-8 border-t border-ink/10 text-center flex flex-wrap justify-center gap-6">
+          <a href="#/tos" className="text-pen-blue hover:underline font-hand text-lg">Terms</a>
           <a href="#/privacy" className="text-pen-blue hover:underline font-hand text-lg">Privacy Policy</a>
           <a href="#/" className="text-pen-blue hover:underline font-hand text-lg">Return to Home</a>
         </div>
