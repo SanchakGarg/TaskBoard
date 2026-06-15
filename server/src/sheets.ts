@@ -239,7 +239,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
         },
         {
           addBanding: {
-            banding: {
+            bandedRange: {
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
               rowProperties: {
                 headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
@@ -419,7 +419,7 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
           },
           {
             addBanding: {
-              banding: {
+              bandedRange: {
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
                 rowProperties: {
                   headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
