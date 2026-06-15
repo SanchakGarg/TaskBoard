@@ -184,6 +184,23 @@ export async function createProjectSheet(userId: string, projectName: string, pr
   const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${projectId} ORDER BY position`;
   const statusOptions = columns.map(c => c.name);
 
+  // Remove conditional format rules that conflict with Table styling
+  // Table styling handles banding automatically.
+  // Add color-coded status/priority dropdowns via dataValidationRule in addTable
+
+  const statusColors = {
+    "todo": { red: 1, green: 0.9, blue: 0.9 },
+    "done": { red: 0.8, green: 1, blue: 0.8 },
+    "in progress": { red: 1, green: 1, blue: 0.8 }
+  };
+
+  const priorityColors = {
+    "low": { red: 0.8, green: 0.8, blue: 1 },
+    "medium": { red: 1, green: 0.9, blue: 0.6 },
+    "high": { red: 1, green: 0.8, blue: 0.8 },
+    "urgent": { red: 1, green: 0.5, blue: 0.5 }
+  };
+
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
@@ -212,18 +229,6 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           },
         },
         {
-          addConditionalFormatRule: {
-            rule: {
-              ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
-              booleanRule: {
-                condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "todo" }] },
-                format: { backgroundColor: { red: 1, green: 0.9, blue: 0.9 }, textFormat: { foregroundColor: { red: 0.5, green: 0, blue: 0 } } },
-              },
-            },
-            index: 1,
-          },
-        },
-        {
           addTable: {
             table: {
               name: `Tasks_${projectName.replace(/\s+/g, "_")}`,
@@ -233,11 +238,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
                 { columnIndex: 0, columnName: "ID (Internal)" },
                 { columnIndex: 1, columnName: "Task Name", columnType: "TEXT" },
                 { columnIndex: 2, columnName: "Description", columnType: "TEXT" },
-                {
-                  columnIndex: 3,
-                  columnName: "Progress %",
-                  columnType: "PERCENT",
-                },
+                { columnIndex: 3, columnName: "Progress %", columnType: "PERCENT" },
                 { columnIndex: 4, columnName: "Assignees", columnType: "TEXT" },
                 {
                   columnIndex: 5,
@@ -250,11 +251,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
                     }
                   }
                 },
-                {
-                  columnIndex: 6,
-                  columnName: "Due Date",
-                  columnType: "DATE",
-                },
+                { columnIndex: 6, columnName: "Due Date", columnType: "DATE" },
                 {
                   columnIndex: 7,
                   columnName: "Priority",
@@ -543,7 +540,7 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
       t.id,
       t.title,
       t.description,
-      t.progress,
+      (t.progress || 0) / 100,
       allNames.join(", "),
       colMap.get(t.column_id!) || "",
       t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
@@ -596,7 +593,7 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
           t.id,
           t.title,
           t.description,
-          t.progress,
+          (t.progress || 0) / 100,
           allNames.join(", "),
           pColMap.get(t.column_id!) || "",
           t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
