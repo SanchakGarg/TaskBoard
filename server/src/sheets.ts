@@ -212,7 +212,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           addTable: {
             table: {
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-              spec: {
+              tableSpec: {
                 hasHeaderRow: true,
               }
             } as any
@@ -367,7 +367,7 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
             addTable: {
               table: {
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-                spec: {
+                tableSpec: {
                   hasHeaderRow: true,
                 }
               } as any
