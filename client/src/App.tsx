@@ -17,9 +17,11 @@ import { ProjectShareSettings } from "./components/ProjectShareSettings";
 import { UserSettings } from "./components/UserSettings";
 import { PageLoader } from "./illustrations";
 import { setToastInstance, useToast } from "./components/ui/Toast";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/uuid, #/public/uuid
 const parseHash = (): View => {
+  if (window.location.hash === "#/privacy") return { kind: "privacy" };
   const m = window.location.hash.match(/^#\/board\/([0-9a-f-]{36})$/);
   if (m) return { kind: "board", projectId: m[1] };
   const p = window.location.hash.match(/^#\/public\/([0-9a-f-]{36})$/);
@@ -31,6 +33,7 @@ const parseHash = (): View => {
 const hashFor = (v: View) => {
   if (v.kind === "board") return `#/board/${v.projectId}`;
   if (v.kind === "public") return `#/public/${v.shareId}`;
+  if (v.kind === "privacy") return `#/privacy`;
   return `#/${v.kind}`;
 };
 
@@ -116,10 +119,11 @@ export function App() {
   }, [projects]);
 
   const isPublic = view.kind === "public";
+  const isPrivacy = view.kind === "privacy";
 
-  if (loading && !isPublic) return <PageLoader />;
-  if (!user && !isPublic) return <Login />;
-  if (dataLoading && !hasLoadedOnce && !isPublic) return <PageLoader />;
+  if (loading && !isPublic && !isPrivacy) return <PageLoader />;
+  if (!user && !isPublic && !isPrivacy) return <Login />;
+  if (dataLoading && !hasLoadedOnce && !isPublic && !isPrivacy) return <PageLoader />;
 
   const navigate = (v: View) => {
     if (v.kind === "board") {
@@ -202,10 +206,10 @@ export function App() {
   return (
     <div className="graph-paper flex h-screen overflow-hidden">
       {/* desktop sidebar */}
-      {!isPublic && <div className="hidden md:block">{sidebar}</div>}
+      {(!isPublic && !isPrivacy) && <div className="hidden md:block">{sidebar}</div>}
 
       {/* mobile drawer */}
-      {drawerOpen && !isPublic && (
+      {drawerOpen && (!isPublic && !isPrivacy) && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="anim-backdrop absolute inset-0 bg-ink/40" onClick={() => setDrawerOpen(false)} />
           <div className="absolute inset-y-0 left-0">{sidebar}</div>
@@ -213,8 +217,8 @@ export function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {!isPublic && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
-        {!isPublic && view.kind !== "dashboard" && (
+        {(!isPublic && !isPrivacy) && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
+        {(!isPublic && !isPrivacy) && view.kind !== "dashboard" && (
           <Tabs
             projects={tabProjects}
             workspaceName={workspaces.find((w) => w.id === activeWs)?.name}
@@ -224,7 +228,9 @@ export function App() {
           />
         )}
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {view.kind === "mytasks" ? (
+          {view.kind === "privacy" ? (
+            <PrivacyPolicy />
+          ) : view.kind === "mytasks" ? (
             <MyTasksPage onNavigate={navigate} />
           ) : view.kind === "dashboard" ? (
             <Dashboard />

@@ -42,9 +42,10 @@ export interface TagDef {
 }
 
 export interface Assignee {
-  id: string;
+  id?: string;
   name: string;
-  avatar_url: string;
+  avatar_url?: string;
+  isGuest?: boolean;
 }
 
 export interface Project {
@@ -82,6 +83,7 @@ export interface Task {
   completed_at: string | null;
   created_at: string;
   project_id?: string | null;
+  external_assignees?: string;
   assignees?: Assignee[];
 }
 
@@ -113,7 +115,8 @@ export type View =
   | { kind: "mytasks" }
   | { kind: "dashboard" }
   | { kind: "board"; projectId: string }
-  | { kind: "public"; shareId: string };
+  | { kind: "public"; shareId: string }
+  | { kind: "privacy" };
 
 export interface WidgetInstance {
   id: string;
