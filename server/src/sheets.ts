@@ -315,25 +315,29 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
     const tabName = p.name.replace(/[\[\]\*\?\/\\]/g, ""); 
 
     let sheetId: string;
-    if (i === 0 && layoutMode === 'stacked') {
+    const finalTabName = layoutMode === 'stacked' ? 'All Projects' : tabName;
+
+    if (i === 0) {
       sheetId = String(defaultSheetId);
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: {
           requests: [{
             updateSheetProperties: {
-              properties: { sheetId: Number(sheetId), title: "All Projects" },
+              properties: { sheetId: Number(sheetId), title: finalTabName },
               fields: "title"
             }
           }]
         }
       });
+    } else if (layoutMode === 'stacked') {
+      sheetId = String(defaultSheetId);
     } else {
       const added = await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: {
           requests: [{
-            addSheet: { properties: { title: tabName } }
+            addSheet: { properties: { title: finalTabName } }
           }]
         }
       });
@@ -353,14 +357,16 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
       "_version",
     ];
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${layoutMode === 'stacked' ? 'All Projects' : tabName}!A1`,
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [headers],
-      },
-    });
+    if (layoutMode !== 'stacked' || i === 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${finalTabName}!A1`,
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [headers],
+        },
+      });
+    }
 
     const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${p.id} ORDER BY position`;
     const statusOptions = columns.map(c => c.name);
