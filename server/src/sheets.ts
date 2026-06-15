@@ -239,18 +239,28 @@ export async function createProjectSheet(userId: string, projectName: string, pr
         },
         {
           addBanding: {
-            bandingProperties: {
+            banding: {
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-              headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
-              firstBandColor: { red: 1, green: 1, blue: 1 },
-              secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+              rowProperties: {
+                headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                firstBandColor: { red: 1, green: 1, blue: 1 },
+                secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+              },
+            },
+          },
+        },
+          {
+            setBasicFilter: {
+              filter: {
+                range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
+              },
             },
           },
         },
         {
           setBasicFilter: {
             filter: {
-              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endIndex: 10 },
+              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
             },
           },
         },
@@ -417,11 +427,20 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
           },
           {
             addBanding: {
-              bandingProperties: {
+              banding: {
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-                headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
-                firstBandColor: { red: 1, green: 1, blue: 1 },
-                secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+                rowProperties: {
+                  headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                  firstBandColor: { red: 1, green: 1, blue: 1 },
+                  secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+                },
+              },
+            },
+          },
+          {
+            setBasicFilter: {
+              filter: {
+                range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
               },
             },
           },
