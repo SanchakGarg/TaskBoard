@@ -99,6 +99,9 @@ export function MyTasksPage({ onNavigate }: MyTasksPageProps) {
                 {tag}
               </Badge>
             ))}
+          {(t.progress ?? 0) > 0 && (
+            <Badge tone="blue">{Math.max(0, Math.min(100, t.progress))}%</Badge>
+          )}
           {t.priority !== "low" && (
             <Badge tone={priorityTone[t.priority]}>
               <Flag size={10} />

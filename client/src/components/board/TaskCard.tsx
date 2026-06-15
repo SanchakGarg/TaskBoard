@@ -33,6 +33,18 @@ export function TaskCard({
     >
       <p className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{task.title}</p>
 
+      {(task.progress ?? 0) > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-2 min-w-0 flex-1 rounded-full border border-ink-soft/30 bg-paper-dark">
+            <div
+              className="h-full rounded-full bg-pen-blue"
+              style={{ width: `${Math.max(0, Math.min(100, task.progress ?? 0))}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-pen-blue">{task.progress}%</span>
+        </div>
+      )}
+
       {(task.due_date || task.priority !== "low" || (task.assignees?.length ?? 0) > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {task.priority !== "low" && (

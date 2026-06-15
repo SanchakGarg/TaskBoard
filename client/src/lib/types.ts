@@ -74,6 +74,7 @@ export interface Task {
   column_id: string | null;
   title: string;
   description: string;
+  progress: number;
   priority: Priority;
   due_date: string | null;
   tags: string;

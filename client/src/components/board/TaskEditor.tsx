@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import { parseTags, type Member, type Priority, type TagDef, type Task } from "../../lib/types";
 import { Avatar, Button, DatePicker, Input, Textarea, useConfirm } from "../ui";
 import { AssigneePicker, PriorityPicker, Removable, TagBadge, TagPicker } from "./pickers";
+import { ProgressInput } from "./ProgressInput";
 
 export interface EditorAnchor {
   left: number;
@@ -55,6 +56,7 @@ export function TaskEditor({
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [priority, setPriority] = useState<Priority>(task.priority);
+  const [progress, setProgress] = useState(task.progress ?? 0);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(parseTags(task.tags));
   const [assignees, setAssignees] = useState<string[]>(task.assignees?.map((a) => a.id) ?? []);
@@ -83,6 +85,7 @@ export function TaskEditor({
     const updated: Partial<Task> = {
       title: title.trim() || task.title,
       description,
+      progress,
       priority,
       due_date: finalDueDate,
       tags: JSON.stringify(selectedTags),
@@ -100,6 +103,7 @@ export function TaskEditor({
     // Fire API in background
     api.patch(`/tasks/${task.id}`, {
       ...updated,
+      progress,
       dueDate: updated.due_date,
       tags: selectedTags,
       assignees,
@@ -149,6 +153,8 @@ export function TaskEditor({
         <DatePicker value={formatDeadline(dueDate)} onChange={setDueDate} compact />
         <PriorityPicker value={priority} onChange={setPriority} />
       </div>
+
+      <ProgressInput value={progress} onChange={setProgress} />
 
       {/* tags row, bottom right */}
       <div className="flex flex-wrap items-center justify-end gap-1.5">

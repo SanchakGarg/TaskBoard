@@ -5,11 +5,14 @@ import { existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config";
-import { initAuth, authRouter } from "./auth";
+import { authRouter } from "./auth";
 import { apiRouter, publicApiRouter } from "./api";
+import { sheetsWebhookRouter } from "./sheets-webhook";
 import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
 import { initDb } from "./db";
 import { mailEnabled } from "./mailer";
+import { startSheetSyncInterval } from "./sheets";
+
 
 import dns from "node:dns";
 dns.setDefaultResultOrder("ipv4first");
@@ -68,6 +71,7 @@ app.post("/api/cron/sweep", async (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicApiRouter);
+app.use("/api/sheets/webhook", sheetsWebhookRouter);
 app.use("/api", apiRouter);
 
 // serve built frontend in production
@@ -100,4 +104,5 @@ app.use(
 await initDb();
 await initAuth();
 startDeadlineWatcher();
+startSheetSyncInterval();
 app.listen(config.port, () => console.log(`taskboard listening on :${config.port}`));

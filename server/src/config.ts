@@ -11,6 +11,7 @@ export const config = {
   cronSecret: process.env.CRON_SECRET ?? "",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   isProd: process.env.NODE_ENV === "production",
+  encryptionKey: process.env.ENCRYPTION_KEY ?? "",
 
   auth: {
     guest: {
@@ -44,4 +45,9 @@ export const config = {
 if (!config.jwtSecret) {
   if (config.isProd) throw new Error("JWT_SECRET must be set in production");
   config.jwtSecret = "dev-only-secret-do-not-use-in-prod";
+}
+
+if (!config.encryptionKey) {
+  if (config.isProd) throw new Error("ENCRYPTION_KEY must be set in production");
+  config.encryptionKey = "dev-only-encryption-key-32-chars-!!!";
 }

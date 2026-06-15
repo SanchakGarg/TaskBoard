@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Member, Priority, TagDef } from "../../lib/types";
 import { Avatar, Button, DatePicker, Input } from "../ui";
 import { AssigneePicker, PriorityPicker, Removable, TagBadge, TagPicker } from "./pickers";
+import { ProgressInput } from "./ProgressInput";
 
 interface QuickAddTaskProps {
   onCreate: (data: {
@@ -9,6 +10,7 @@ interface QuickAddTaskProps {
     dueDate?: string;
     tags: string[];
     priority: Priority;
+    progress: number;
     assignees: string[];
   }) => Promise<void>;
   onCancel: () => void;
@@ -20,6 +22,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("low");
+  const [progress, setProgress] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -47,6 +50,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
         dueDate: dueDate || undefined,
         tags: selectedTags,
         priority,
+        progress,
         assignees,
       });
       // onCreate is expected to call onCancel / close from the parent after success
@@ -86,6 +90,8 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
           {submitting ? "Adding…" : "Add"}
         </Button>
       </div>
+
+      <ProgressInput value={progress} onChange={setProgress} compact />
 
       {/* tags row, pushed bottom right: chips with hover ✕, plus to add more */}
       <div className="flex flex-wrap items-center justify-end gap-1.5">

@@ -3,8 +3,8 @@
 A self-hosted, notebook-styled task management app. Kanban boards, a widget
 dashboard, and OIDC login — built deliberately lean.
 
-**Runtime dependencies: 5.** `express`, `helmet`, `express-rate-limit`,
-`openid-client`, `jsonwebtoken`. The database is Bun's built-in `bun:sqlite`,
+**Runtime dependencies: 6.** `express`, `helmet`, `express-rate-limit`,
+`openid-client`, `jsonwebtoken`, `googleapis`. The database is **PostgreSQL**,
 the frontend is React + Tailwind (build-time only) with hand-written
 components, CSS-only animations, and native HTML5 drag & drop. No ORM, no
 Radix, no chart or animation libraries.
@@ -14,10 +14,10 @@ Radix, no chart or animation libraries.
 | Layer     | Choice                                              |
 | --------- | --------------------------------------------------- |
 | Runtime   | Bun                                                  |
-| Backend   | Express + `bun:sqlite`                               |
+| Backend   | Express + PostgreSQL                                 |
 | Auth      | OIDC (Google and/or Zitadel) and/or guest login      |
 | Frontend  | Vite + React + TypeScript + TailwindCSS + lucide     |
-| Deploy    | Docker (multi-stage, non-root) or bare Bun           |
+| Sync      | Bidirectional Google Sheets Sync                    |
 
 ## Configuration
 
@@ -29,18 +29,34 @@ cp .env.example .env
 ```
 
 - `JWT_SECRET` — required in production. Any long random string.
+- `DATABASE_URL` — PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`).
+- `ENCRYPTION_KEY` — 32-character string used to encrypt Google refresh tokens.
 - `APP_URL` — the public URL users reach the app at (used to build OAuth
   redirect URIs). Behind a reverse proxy this is your HTTPS URL.
 - Enable any combination of login providers:
   - `AUTH_GOOGLE_ENABLED=true` + `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
     Redirect URI to register: `{APP_URL}/api/auth/google/callback`
+    *Note: For Google Sheets sync, ensure you add `https://www.googleapis.com/auth/spreadsheets` and `https://www.googleapis.com/auth/drive.file` scopes in your Google Cloud Console.*
   - `AUTH_ZITADEL_ENABLED=true` + `ZITADEL_ISSUER` / `ZITADEL_CLIENT_ID` /
     `ZITADEL_CLIENT_SECRET`.
     Redirect URI to register: `{APP_URL}/api/auth/zitadel/callback`
   - `AUTH_GUEST_ENABLED=true` — single shared Guest account, no identity
     provider. For demos and trusted LANs only.
 
-The login page automatically shows a button per enabled provider.
+## Google Sheets Synchronization
+
+Taskboard supports bidirectional sync with Google Sheets.
+
+1. **Enable Sheets:** Ensure `AUTH_GOOGLE_ENABLED` is true and your Google App has the required scopes.
+2. **Link a Project:** Open Project Share settings and click "Link Sheet". A new spreadsheet will be created.
+3. **App-to-Sheet:** Any change in Taskboard (rename, status, progress, priority) is synced to the sheet within 2 seconds.
+4. **Sheet-to-App:** 
+   - Open the linked spreadsheet.
+   - Go to `Extensions > Apps Script`.
+   - Copy the "Bidirectional Sync Script" from Taskboard's Share modal and paste it.
+   - Save the script and add an **"On edit" trigger** in the Apps Script console.
+   - Edits in the sheet (except headers) will now instantly update Taskboard.
+   - You can even create new tasks by adding rows at the bottom.
 
 ## Run with Docker
 

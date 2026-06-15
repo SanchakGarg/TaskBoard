@@ -12,6 +12,8 @@ import { MyTasksPage } from "./components/MyTasksPage";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
+import { WorkspaceShareSettings } from "./components/WorkspaceShareSettings";
+import { ProjectShareSettings } from "./components/ProjectShareSettings";
 import { UserSettings } from "./components/UserSettings";
 import { PageLoader } from "./illustrations";
 import { setToastInstance, useToast } from "./components/ui/Toast";
@@ -53,6 +55,8 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile sidebar
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
+  const [sharingWs, setSharingWs] = useState<Workspace | null>(null);
+  const [sharingProject, setSharingProject] = useState<Project | null>(null);
   const [settingsUser, setSettingsUser] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -174,8 +178,16 @@ export function App() {
         setSettingsWs(ws);
         setDrawerOpen(false);
       }}
+      onOpenWorkspaceShare={(ws) => {
+        setSharingWs(ws);
+        setDrawerOpen(false);
+      }}
       onOpenProjectSettings={(p) => {
         setSettingsProject(p);
+        setDrawerOpen(false);
+      }}
+      onOpenProjectShare={(p) => {
+        setSharingProject(p);
         setDrawerOpen(false);
       }}
       onOpenUserSettings={() => {
@@ -246,6 +258,25 @@ export function App() {
           project={projects.find((p) => p.id === settingsProject.id) ?? settingsProject}
           role={currentRole}
           onClose={() => setSettingsProject(null)}
+          onSaved={loadAll}
+        />
+      )}
+      {sharingWs && (
+        <WorkspaceShareSettings
+          workspace={workspaces.find((w) => w.id === sharingWs.id) ?? sharingWs}
+          onClose={() => setSharingWs(null)}
+          onSaved={loadAll}
+        />
+      )}
+      {sharingProject && (
+        <ProjectShareSettings
+          project={projects.find((p) => p.id === sharingProject.id) ?? sharingProject}
+          role={
+            workspaces.find(
+              (w) => w.id === (projects.find((p) => p.id === sharingProject.id) ?? sharingProject).workspace_id
+            )?.role ?? "read"
+          }
+          onClose={() => setSharingProject(null)}
           onSaved={loadAll}
         />
       )}

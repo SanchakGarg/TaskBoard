@@ -13,6 +13,8 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
       - key: CRON_SECRET
         generateValue: true
       - key: AUTH_GUEST_ENABLED

@@ -135,6 +135,9 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
             .map((tag) => (
               <TagBadge key={tag} name={tag} tags={tags} />
             ))}
+          {(t.progress ?? 0) > 0 && (
+            <Badge tone="blue">{Math.max(0, Math.min(100, t.progress))}%</Badge>
+          )}
           {t.priority !== "low" && (
             <Badge tone={priorityTone[t.priority]}>
               <Flag size={10} />

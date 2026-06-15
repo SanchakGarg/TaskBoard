@@ -103,6 +103,7 @@ export const initDb = async () => {
       column_id UUID REFERENCES columns(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
+      progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
       priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
       due_date TIMESTAMP,
       tags TEXT NOT NULL DEFAULT '[]',
@@ -113,6 +114,12 @@ export const initDb = async () => {
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       deadline_notified_for TIMESTAMP
     );
+  `;
+
+  await sql`
+    ALTER TABLE tasks
+    ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0
+    CHECK (progress >= 0 AND progress <= 100)
   `;
 
   await sql`
@@ -179,6 +186,35 @@ export const initDb = async () => {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_sheet_links (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      spreadsheet_id TEXT NOT NULL,
+      spreadsheet_url TEXT NOT NULL,
+      sheet_id TEXT NOT NULL,
+      tab_name TEXT NOT NULL,
+      layout_mode TEXT NOT NULL DEFAULT 'single' CHECK (layout_mode IN ('single', 'stacked')),
+      sync_token TEXT NOT NULL,
+      last_sync_app_to_sheet TIMESTAMP,
+      last_sync_sheet_to_app TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, project_id, spreadsheet_id, tab_name)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS google_tokens (
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      expiry_date BIGINT,
+      scope TEXT,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
   // Indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_columns_project ON columns(project_id, position)`;
@@ -200,6 +236,7 @@ export interface Task {
   column_id: string | null;
   title: string;
   description: string;
+  progress: number;
   priority: "low" | "medium" | "high" | "urgent";
   due_date: string | null;
   tags: string;
@@ -208,6 +245,30 @@ export interface Task {
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface GoogleToken {
+  user_id: string;
+  access_token: string;
+  refresh_token: string | null;
+  expiry_date: string | null;
+  scope: string | null;
+  updated_at: string;
+}
+
+export interface ProjectSheetLink {
+  id: string;
+  user_id: string;
+  project_id: string;
+  spreadsheet_id: string;
+  spreadsheet_url: string;
+  sheet_id: string;
+  tab_name: string;
+  layout_mode: 'single' | 'stacked';
+  sync_token: string;
+  last_sync_app_to_sheet: string | null;
+  last_sync_sheet_to_app: string | null;
+  created_at: string;
 }
 
 export const upsertUser = async (u: {

@@ -5,6 +5,7 @@ import {
   KanbanSquare,
   List,
   Plus,
+  Share2,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -23,7 +24,9 @@ interface SidebarProps {
   onCreateWorkspace: (name: string) => Promise<void>;
   onCreateProject: (workspaceId: string, name: string, viewType: "kanban" | "list") => Promise<void>;
   onOpenSettings: (ws: Workspace) => void;
+  onOpenWorkspaceShare: (ws: Workspace) => void;
   onOpenProjectSettings: (p: Project) => void;
+  onOpenProjectShare: (p: Project) => void;
   onOpenUserSettings: () => void;
   collapsed: boolean;
   onToggle: () => void;
@@ -37,7 +40,9 @@ export function Sidebar({
   onCreateWorkspace,
   onCreateProject,
   onOpenSettings,
+  onOpenWorkspaceShare,
   onOpenProjectSettings,
+  onOpenProjectShare,
   onOpenUserSettings,
   collapsed,
   onToggle,
@@ -58,6 +63,11 @@ export function Sidebar({
         icon: <Plus size={14} />,
         onClick: () => setCreatingIn(ws.id),
       });
+    items.push({
+      label: "Share",
+      icon: <Share2 size={14} />,
+      onClick: () => onOpenWorkspaceShare(ws),
+    });
     items.push({
       label: "Settings",
       icon: <Settings size={14} />,
@@ -182,6 +192,13 @@ export function Sidebar({
                       </button>
                     )}
                     <button
+                      aria-label={`Share ${ws.name}`}
+                      onClick={() => onOpenWorkspaceShare(ws)}
+                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
+                    >
+                      <Share2 size={13} />
+                    </button>
+                    <button
                       aria-label={`Settings for ${ws.name}`}
                       onClick={() => onOpenSettings(ws)}
                       className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
@@ -204,6 +221,11 @@ export function Sidebar({
                           y: e.clientY,
                           items: [
                             {
+                              label: "Share project",
+                              icon: <Share2 size={14} />,
+                              onClick: () => onOpenProjectShare(p),
+                            },
+                            {
                               label: "Project settings",
                               icon: <Settings size={14} />,
                               onClick: () => onOpenProjectSettings(p),
@@ -223,7 +245,14 @@ export function Sidebar({
                         onClick={() => onNavigate({ kind: "board", projectId: p.id })}
                       />
                       {!collapsed && (
-                        <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center opacity-0 group-hover/project:opacity-100">
+                        <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover/project:opacity-100">
+                          <button
+                            aria-label={`Share ${p.name}`}
+                            onClick={() => onOpenProjectShare(p)}
+                            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-ink"
+                          >
+                            <Share2 size={13} />
+                          </button>
                           <button
                             aria-label={`Settings for ${p.name}`}
                             onClick={() => onOpenProjectSettings(p)}
