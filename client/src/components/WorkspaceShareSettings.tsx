@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Trash2, UserPlus } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type { Member, Role, Workspace } from "../lib/types";
-import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, useConfirm } from "./ui";
+import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, showToast, useConfirm } from "./ui";
 
 interface WorkspaceShareSettingsProps {
   workspace: Workspace;
@@ -18,13 +18,14 @@ const roleOptions: { value: Role; label: string }[] = [
 ];
 
 const roleHelp: Record<Role, string> = {
-  admin: "Everything: projects, members, settings",
+  admin: "Full control over workspace and projects",
   write: "Read + create, edit and complete tasks",
   checker: "Read + mark tasks complete only",
   read: "View tasks only",
 };
 
-export function WorkspaceShareSettings({ workspace, onClose, onSaved }: WorkspaceShareSettingsProps) {
+export function WorkspaceShareSettings({ workspace, onClose }: WorkspaceShareSettingsProps) {
+
   const confirm = useConfirm();
   const [members, setMembers] = useState<Member[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
