@@ -58,9 +58,11 @@ export function PrivacyPolicy() {
           </p>
         </section>
 
-        <div className="mt-8 pt-8 border-t border-ink/10 text-center flex flex-wrap justify-center gap-6">
+        <div className="mt-8 pt-8 border-t border-ink/10 text-center flex flex-wrap justify-center items-center gap-4 text-sm text-ink-soft">
           <a href="#/about" className="text-pen-blue hover:underline font-hand text-lg">About</a>
-          <a href="#/tos" className="text-pen-blue hover:underline font-hand text-lg">Terms</a>
+          <span>•</span>
+          <a href="#/tos" className="text-pen-blue hover:underline font-hand text-lg">Terms of Service</a>
+          <span>•</span>
           <a href="#/" className="text-pen-blue hover:underline font-hand text-lg">Return to Home</a>
         </div>
       </div>

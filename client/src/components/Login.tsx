@@ -56,9 +56,11 @@ export function Login() {
 
         <Coffee size={36} className="mx-auto mt-6 text-ink-soft/60" />
 
-        <div className="mt-8 pt-6 border-t border-ink/10 text-xs text-ink-soft flex justify-center gap-4">
+        <div className="mt-8 pt-6 border-t border-ink/10 text-[10px] text-ink-soft flex justify-center items-center gap-2">
           <a href="#/about" className="hover:underline hover:text-ink transition-colors">About</a>
-          <a href="#/tos" className="hover:underline hover:text-ink transition-colors">Terms</a>
+          <span>•</span>
+          <a href="#/tos" className="hover:underline hover:text-ink transition-colors">Terms of Service</a>
+          <span>•</span>
           <a href="#/privacy" className="hover:underline hover:text-ink transition-colors">Privacy Policy</a>
         </div>
       </Card>

@@ -48,9 +48,11 @@ export function TermsOfService() {
           </p>
         </section>
 
-        <div className="mt-8 pt-8 border-t border-ink/10 text-center flex flex-wrap justify-center gap-6">
+        <div className="mt-8 pt-8 border-t border-ink/10 text-center flex flex-wrap justify-center items-center gap-4 text-sm text-ink-soft">
           <a href="#/about" className="text-pen-blue hover:underline font-hand text-lg">About</a>
+          <span>•</span>
           <a href="#/privacy" className="text-pen-blue hover:underline font-hand text-lg">Privacy Policy</a>
+          <span>•</span>
           <a href="#/" className="text-pen-blue hover:underline font-hand text-lg">Return to Home</a>
         </div>
       </div>

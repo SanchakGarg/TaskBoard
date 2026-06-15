@@ -56,6 +56,12 @@ export function App() {
   // For public projects
   const [publicData, setPublicData] = useState<{ project: Project; columns: Column[]; tasks: Task[] } | null>(null);
 
+  useEffect(() => {
+    const handleHash = () => setViewState(parseHash());
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   const setView = (v: View) => {
     setViewState(v);
     window.history.replaceState(null, "", hashFor(v));
