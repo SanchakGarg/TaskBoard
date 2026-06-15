@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config";
-import { authRouter } from "./auth";
+import { initAuth, authRouter } from "./auth";
 import { apiRouter, publicApiRouter } from "./api";
 import { sheetsWebhookRouter } from "./sheets-webhook";
 import { startDeadlineWatcher, runDeadlineSweep } from "./deadlines";
