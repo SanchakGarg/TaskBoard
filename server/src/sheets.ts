@@ -608,6 +608,14 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
       currentRow += pValues.length;
     }
   } else {
+    // Standard single-tab overwrite with dynamic resizing
+    const ss = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheet = ss.data.sheets?.find(s => s.properties?.title === tabName);
+    const sheetId = sheet?.properties?.sheetId;
+    const currentMaxRows = sheet?.properties?.gridProperties?.rowCount ?? 0;
+    const targetRows = values.length + 1; // Header + Tasks
+    const tableId = projectId.replace(/-/g, "").substring(0, 9);
+
     if (values.length) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
@@ -616,11 +624,63 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
         requestBody: { values },
       });
     }
-    
-    const nextRow = values.length + 2;
-    await sheets.spreadsheets.values.clear({
+
+    const requests: any[] = [
+      {
+        updateTable: {
+          table: {
+            tableId,
+            range: {
+              sheetId: Number(sheetId),
+              startRowIndex: 0,
+              endRowIndex: targetRows,
+              startColumnIndex: 0,
+              endColumnIndex: 10,
+            },
+          },
+          fields: "range",
+        },
+      },
+    ];
+
+    // Delete excess rows if any to keep sheet size minimal
+    if (currentMaxRows > targetRows && targetRows > 1) {
+      requests.push({
+        deleteDimension: {
+          range: {
+            sheetId: Number(sheetId),
+            dimension: "ROWS",
+            startIndex: targetRows,
+            endIndex: currentMaxRows,
+          },
+        },
+      });
+    } else if (currentMaxRows > targetRows && targetRows === 1) {
+      // If no tasks, keep 2 rows (header + 1 empty row) to avoid deleting everything
+      if (currentMaxRows > 2) {
+        requests.push({
+          deleteDimension: {
+            range: {
+              sheetId: Number(sheetId),
+              dimension: "ROWS",
+              startIndex: 2,
+              endIndex: currentMaxRows,
+            },
+          },
+        });
+      }
+      // Also clear row 2 since it was previously a task
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId,
+        range: `${tabName}!A2:J2`,
+      });
+    }
+
+    await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
-      range: `${tabName}!A${nextRow}:J2000`,
+      requestBody: { requests },
+    }).catch(err => {
+      console.warn(`Failed to resize table/prune rows for ${tabName}:`, err.message);
     });
   }
 
