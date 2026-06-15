@@ -127,7 +127,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
 
   // Set headers
   const headers = [
-    "_task_id",
+    "ID (Internal)",
     "Task Name",
     "Description",
     "Progress %",
@@ -148,7 +148,10 @@ export async function createProjectSheet(userId: string, projectName: string, pr
     },
   });
 
-  // Freeze top row and hide internal columns
+  const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${projectId} ORDER BY position`;
+  const statusOptions = columns.map(c => c.name);
+
+  // Freeze top row, hide internal columns, and format header
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
@@ -165,36 +168,95 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           },
         },
         {
-          updateDimensionProperties: {
+          repeatCell: {
             range: {
               sheetId: Number(sheetId),
-              dimension: "COLUMNS",
-              startIndex: 0,
-              endIndex: 1,
+              startRowIndex: 0,
+              endRowIndex: 1,
             },
-            properties: {
-              hiddenByUser: true,
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+                horizontalAlignment: "CENTER",
+              },
             },
+            fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 0, endIndex: 1,
+            },
+            properties: { hiddenByUser: true },
             fields: "hiddenByUser",
           },
         },
         {
           updateDimensionProperties: {
             range: {
-              sheetId: Number(sheetId),
-              dimension: "COLUMNS",
-              startIndex: 9,
-              endIndex: 10,
+              sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 9, endIndex: 10,
             },
-            properties: {
-              hiddenByUser: true,
-            },
+            properties: { hiddenByUser: true },
             fields: "hiddenByUser",
           },
         },
-      ],
-    },
-  });
+        {
+          setDataValidation: {
+            range: {
+              sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: statusOptions.map(v => ({ userEnteredValue: v })) },
+              showCustomUi: true,
+            },
+          },
+        },
+        {
+          addConditionalFormatRule: {
+            rule: {
+              ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
+              booleanRule: {
+                condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "done" }] },
+                format: { backgroundColor: { red: 0.8, green: 1, blue: 0.8 }, textFormat: { foregroundColor: { red: 0, green: 0.5, blue: 0 } } },
+              },
+            },
+            index: 0,
+          },
+        },
+        {
+          addConditionalFormatRule: {
+            rule: {
+              ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
+              booleanRule: {
+                condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "todo" }] },
+                format: { backgroundColor: { red: 1, green: 0.9, blue: 0.9 }, textFormat: { foregroundColor: { red: 0.5, green: 0, blue: 0 } } },
+              },
+            },
+            index: 1,
+          },
+        },
+        {
+          addBanding: {
+            bandingProperties: {
+              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
+              headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
+              firstBandColor: { red: 1, green: 1, blue: 1 },
+              secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+            },
+          },
+        },
+        {
+          setBasicFilter: {
+            filter: {
+              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endIndex: 10 },
+            },
+          },
+        },
+        ],
+        },
+        });
 
   return {
     spreadsheetId,
@@ -259,7 +321,7 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
     }
 
     const headers = [
-      "_task_id",
+      "ID (Internal)",
       "Task Name",
       "Description",
       "Progress %",
@@ -277,6 +339,93 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
       valueInputOption: "RAW",
       requestBody: {
         values: [headers],
+      },
+    });
+
+    const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${p.id} ORDER BY position`;
+    const statusOptions = columns.map(c => c.name);
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: { sheetId: Number(sheetId), gridProperties: { frozenRowCount: 1 } },
+              fields: "gridProperties.frozenRowCount",
+            },
+          },
+          {
+            repeatCell: {
+              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                  textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
+                  horizontalAlignment: "CENTER",
+                },
+              },
+              fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
+              properties: { hiddenByUser: true },
+              fields: "hiddenByUser",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 9, endIndex: 10 },
+              properties: { hiddenByUser: true },
+              fields: "hiddenByUser",
+            },
+          },
+          {
+            setDataValidation: {
+              range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 },
+              rule: {
+                condition: { type: "ONE_OF_LIST", values: statusOptions.map(v => ({ userEnteredValue: v })) },
+                showCustomUi: true,
+              },
+            },
+          },
+          {
+            addConditionalFormatRule: {
+              rule: {
+                ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
+                booleanRule: {
+                  condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "done" }] },
+                  format: { backgroundColor: { red: 0.8, green: 1, blue: 0.8 }, textFormat: { foregroundColor: { red: 0, green: 0.5, blue: 0 } } },
+                },
+              },
+              index: 0,
+            },
+          },
+          {
+            addConditionalFormatRule: {
+              rule: {
+                ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
+                booleanRule: {
+                  condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "todo" }] },
+                  format: { backgroundColor: { red: 1, green: 0.9, blue: 0.9 }, textFormat: { foregroundColor: { red: 0.5, green: 0, blue: 0 } } },
+                },
+              },
+              index: 1,
+            },
+          },
+          {
+            addBanding: {
+              bandingProperties: {
+                range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
+                headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                firstBandColor: { red: 1, green: 1, blue: 1 },
+                secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+              },
+            },
+          },
+        ],
       },
     });
 
@@ -434,11 +583,6 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
     }
   } else {
     // Standard single-tab overwrite
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId,
-      range: `${tabName}!A2:Z2000`,
-    });
-
     if (values.length) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
@@ -449,6 +593,13 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
         },
       });
     }
+    
+    // Clear only remaining rows if tasks were deleted, to preserve formatting in managed rows
+    const nextRow = values.length + 2;
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${tabName}!A${nextRow}:J2000`,
+    });
   }
 
   await sql`

@@ -31,10 +31,15 @@ sheetsWebhookRouter.post("/:syncToken", async (req, res) => {
 
     const [taskIdRaw, title, description, progressRaw, assigneesRaw, statusName, dueDateRaw, priority, tagsRaw, versionRaw] = values;
 
+    console.log(`Row data: taskId=${taskIdRaw}, title=${title}, status=${statusName}`);
+
     // 1. Resolve Status (Column)
     const columns = await sql<{ id: string; name: string; is_done: number }[]>`SELECT id, name, is_done FROM columns WHERE project_id = ${link.project_id} ORDER BY position`;
-    let targetColumn = columns.find(c => c.name === statusName);
-    if (!targetColumn && columns.length > 0) targetColumn = columns[0]; // Default to first column
+    let targetColumn = columns.find(c => c.name.toLowerCase() === statusName?.toLowerCase());
+    if (!targetColumn && columns.length > 0) {
+      console.log(`Status "${statusName}" not found in project columns. Available: ${columns.map(c => c.name).join(", ")}`);
+      targetColumn = columns[0]; // Default to first column
+    }
 
     // 2. Prepare Update/Create
     const progress = Math.max(0, Math.min(100, parseInt(progressRaw) || 0));
