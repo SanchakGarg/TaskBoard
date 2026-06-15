@@ -75,32 +75,68 @@ export async function addStatusValidation(userId: string, projectId: string, spr
 
   if (columnNames.length === 0) return;
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          setDataValidation: {
-            range: {
-              sheetId: Number(sheetId),
-              startRowIndex: 1, 
-              endRowIndex: 1000,
-              startColumnIndex: 5, 
-              endColumnIndex: 6,
-            },
-            rule: {
-              condition: {
-                type: "ONE_OF_LIST",
-                values: columnNames.map((name) => ({ userEnteredValue: name })),
+  const tableId = projectId.replace(/-/g, "").substring(0, 9);
+  
+  try {
+    // 1. Try updating as a Table "typed column" (New Google Sheets feature)
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateTable: {
+              table: {
+                tableId,
+                columnProperties: [
+                  {
+                    columnIndex: 5,
+                    columnType: "DROPDOWN",
+                    dataValidationRule: {
+                      condition: {
+                        type: "ONE_OF_LIST",
+                        values: columnNames.map((name) => ({ userEnteredValue: name })),
+                      },
+                    },
+                  },
+                ],
               },
-              showCustomUi: true,
-              strict: true,
+              fields: "columnProperties(columnType,dataValidationRule)",
+            } as any,
+          },
+        ],
+      },
+    });
+  } catch (err: any) {
+    // If table doesn't exist or updateTable isn't supported, fall back to standard data validation
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            setDataValidation: {
+              range: {
+                sheetId: Number(sheetId),
+                startRowIndex: 1, 
+                endRowIndex: 1000,
+                startColumnIndex: 5, 
+                endColumnIndex: 6,
+              },
+              rule: {
+                condition: {
+                  type: "ONE_OF_LIST",
+                  values: columnNames.map((name) => ({ userEnteredValue: name })),
+                },
+                showCustomUi: true,
+                strict: true,
+              },
             },
           },
-        },
-      ],
-    },
-  });
+        ],
+      },
+    }).catch(innerErr => {
+      console.warn("Both updateTable and setDataValidation failed for status validation:", innerErr.message);
+    });
+  }
 }
 
 export async function createProjectSheet(userId: string, projectName: string, projectId: string) {
@@ -176,27 +212,6 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           },
         },
         {
-          setDataValidation: {
-            range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 },
-            rule: {
-              condition: { type: "ONE_OF_LIST", values: statusOptions.map(v => ({ userEnteredValue: v })) },
-              showCustomUi: true,
-            },
-          },
-        },
-        {
-          addConditionalFormatRule: {
-            rule: {
-              ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
-              booleanRule: {
-                condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "done" }] },
-                format: { backgroundColor: { red: 0.8, green: 1, blue: 0.8 }, textFormat: { foregroundColor: { red: 0, green: 0.5, blue: 0 } } },
-              },
-            },
-            index: 0,
-          },
-        },
-        {
           addConditionalFormatRule: {
             rule: {
               ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
@@ -211,7 +226,43 @@ export async function createProjectSheet(userId: string, projectName: string, pr
         {
           addTable: {
             table: {
+              tableId: projectId.replace(/-/g, "").substring(0, 9),
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
+              columnProperties: [
+                {
+                  columnIndex: 3,
+                  columnType: "NUMBER",
+                },
+                {
+                  columnIndex: 5,
+                  columnType: "DROPDOWN",
+                  dataValidationRule: {
+                    condition: {
+                      type: "ONE_OF_LIST",
+                      values: statusOptions.map(v => ({ userEnteredValue: v }))
+                    }
+                  }
+                },
+                {
+                  columnIndex: 6,
+                  columnType: "DATE",
+                },
+                {
+                  columnIndex: 7,
+                  columnType: "DROPDOWN",
+                  dataValidationRule: {
+                    condition: {
+                      type: "ONE_OF_LIST",
+                      values: [
+                        { userEnteredValue: "low" },
+                        { userEnteredValue: "medium" },
+                        { userEnteredValue: "high" },
+                        { userEnteredValue: "urgent" }
+                      ]
+                    }
+                  }
+                }
+              ]
             } as any
           }
         }
@@ -328,27 +379,6 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
             },
           },
           {
-            setDataValidation: {
-              range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 },
-              rule: {
-                condition: { type: "ONE_OF_LIST", values: statusOptions.map(v => ({ userEnteredValue: v })) },
-                showCustomUi: true,
-              },
-            },
-          },
-          {
-            addConditionalFormatRule: {
-              rule: {
-                ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
-                booleanRule: {
-                  condition: { type: "TEXT_CONTAINS", values: [{ userEnteredValue: "done" }] },
-                  format: { backgroundColor: { red: 0.8, green: 1, blue: 0.8 }, textFormat: { foregroundColor: { red: 0, green: 0.5, blue: 0 } } },
-                },
-              },
-              index: 0,
-            },
-          },
-          {
             addConditionalFormatRule: {
               rule: {
                 ranges: [{ sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 }],
@@ -363,7 +393,43 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
           {
             addTable: {
               table: {
+                tableId: p.id.replace(/-/g, "").substring(0, 9),
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
+                columnProperties: [
+                  {
+                    columnIndex: 3,
+                    columnType: "NUMBER",
+                  },
+                  {
+                    columnIndex: 5,
+                    columnType: "DROPDOWN",
+                    dataValidationRule: {
+                      condition: {
+                        type: "ONE_OF_LIST",
+                        values: statusOptions.map(v => ({ userEnteredValue: v }))
+                      }
+                    }
+                  },
+                  {
+                    columnIndex: 6,
+                    columnType: "DATE",
+                  },
+                  {
+                    columnIndex: 7,
+                    columnType: "DROPDOWN",
+                    dataValidationRule: {
+                      condition: {
+                        type: "ONE_OF_LIST",
+                        values: [
+                          { userEnteredValue: "low" },
+                          { userEnteredValue: "medium" },
+                          { userEnteredValue: "high" },
+                          { userEnteredValue: "urgent" }
+                        ]
+                      }
+                    }
+                  }
+                ]
               } as any
             }
           }
