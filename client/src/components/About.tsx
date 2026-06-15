@@ -1,6 +1,9 @@
 export function About() {
   return (
-    <div className="graph-paper min-h-screen p-8 flex justify-center">
+    <div className="graph-paper min-h-screen p-8 flex flex-col items-center">
+      <div className="max-w-3xl w-full mb-4 flex justify-start">
+        <a href="#/" className="text-pen-blue hover:underline font-hand text-lg">← Return to Home</a>
+      </div>
       <div className="max-w-3xl w-full bg-paper p-8 rounded-xl shadow-sm border border-ink/10">
         <h1 className="text-3xl font-bold mb-6 font-hand">About Taskboard</h1>
         
