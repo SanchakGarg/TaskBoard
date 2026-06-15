@@ -249,14 +249,6 @@ export async function createProjectSheet(userId: string, projectName: string, pr
             },
           },
         },
-          {
-            setBasicFilter: {
-              filter: {
-                range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-              },
-            },
-          },
-        },
         {
           setBasicFilter: {
             filter: {
