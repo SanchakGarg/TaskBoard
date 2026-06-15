@@ -226,15 +226,22 @@ export async function createProjectSheet(userId: string, projectName: string, pr
         {
           addTable: {
             table: {
+              name: `Tasks_${projectName.replace(/\s+/g, "_")}`,
               tableId: projectId.replace(/-/g, "").substring(0, 9),
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
               columnProperties: [
+                { columnIndex: 0, columnName: "ID (Internal)" },
+                { columnIndex: 1, columnName: "Task Name", columnType: "TEXT" },
+                { columnIndex: 2, columnName: "Description", columnType: "TEXT" },
                 {
                   columnIndex: 3,
-                  columnType: "TEXT",
+                  columnName: "Progress %",
+                  columnType: "PERCENT",
                 },
+                { columnIndex: 4, columnName: "Assignees", columnType: "TEXT" },
                 {
                   columnIndex: 5,
+                  columnName: "Status",
                   columnType: "DROPDOWN",
                   dataValidationRule: {
                     condition: {
@@ -245,10 +252,12 @@ export async function createProjectSheet(userId: string, projectName: string, pr
                 },
                 {
                   columnIndex: 6,
+                  columnName: "Due Date",
                   columnType: "DATE",
                 },
                 {
                   columnIndex: 7,
+                  columnName: "Priority",
                   columnType: "DROPDOWN",
                   dataValidationRule: {
                     condition: {
@@ -261,7 +270,9 @@ export async function createProjectSheet(userId: string, projectName: string, pr
                       ]
                     }
                   }
-                }
+                },
+                { columnIndex: 8, columnName: "Tags", columnType: "TEXT" },
+                { columnIndex: 9, columnName: "_version" }
               ]
             } as any
           }
@@ -393,15 +404,22 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
           {
             addTable: {
               table: {
+                name: `Tasks_${p.name.replace(/\s+/g, "_")}`,
                 tableId: p.id.replace(/-/g, "").substring(0, 9),
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
                 columnProperties: [
+                  { columnIndex: 0, columnName: "ID (Internal)" },
+                  { columnIndex: 1, columnName: "Task Name", columnType: "TEXT" },
+                  { columnIndex: 2, columnName: "Description", columnType: "TEXT" },
                   {
                     columnIndex: 3,
-                    columnType: "TEXT",
+                    columnName: "Progress %",
+                    columnType: "PERCENT",
                   },
+                  { columnIndex: 4, columnName: "Assignees", columnType: "TEXT" },
                   {
                     columnIndex: 5,
+                    columnName: "Status",
                     columnType: "DROPDOWN",
                     dataValidationRule: {
                       condition: {
@@ -412,10 +430,12 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
                   },
                   {
                     columnIndex: 6,
+                    columnName: "Due Date",
                     columnType: "DATE",
                   },
                   {
                     columnIndex: 7,
+                    columnName: "Priority",
                     columnType: "DROPDOWN",
                     dataValidationRule: {
                       condition: {
@@ -428,7 +448,9 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
                         ]
                       }
                     }
-                  }
+                  },
+                  { columnIndex: 8, columnName: "Tags", columnType: "TEXT" },
+                  { columnIndex: 9, columnName: "_version" }
                 ]
               } as any
             }
