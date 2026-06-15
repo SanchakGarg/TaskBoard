@@ -104,6 +104,7 @@ export const initDb = async () => {
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+      external_assignees TEXT NOT NULL DEFAULT '[]',
       priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
       due_date TIMESTAMP,
       tags TEXT NOT NULL DEFAULT '[]',
@@ -120,6 +121,11 @@ export const initDb = async () => {
     ALTER TABLE tasks
     ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0
     CHECK (progress >= 0 AND progress <= 100)
+  `;
+
+  await sql`
+    ALTER TABLE tasks
+    ADD COLUMN IF NOT EXISTS external_assignees TEXT NOT NULL DEFAULT '[]'
   `;
 
   await sql`
@@ -237,6 +243,7 @@ export interface Task {
   title: string;
   description: string;
   progress: number;
+  external_assignees: string;
   priority: "low" | "medium" | "high" | "urgent";
   due_date: string | null;
   tags: string;

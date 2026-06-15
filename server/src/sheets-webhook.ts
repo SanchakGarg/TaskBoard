@@ -43,17 +43,44 @@ sheetsWebhookRouter.post("/:syncToken", async (req, res) => {
     const dueDate = dueDateRaw ? new Date(dueDateRaw).toISOString() : null;
     const priorityClean = ["low", "medium", "high", "urgent"].includes(priority?.toLowerCase()) ? priority.toLowerCase() : "medium";
 
+    // 3. Resolve Assignees
+    const assigneesArr = (assigneesRaw || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    const projectMembers = await sql<{ user_id: string; name: string }[]>`
+      SELECT pm.user_id, u.name FROM project_members pm
+      JOIN users u ON u.id = pm.user_id
+      WHERE pm.project_id = ${link.project_id}
+    `;
+    
+    const realIds: string[] = [];
+    const extNames: string[] = [];
+    
+    for (const name of assigneesArr) {
+      const member = projectMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
+      if (member) {
+        realIds.push(member.user_id);
+      } else {
+        extNames.push(name);
+      }
+    }
+    const externalAssignees = JSON.stringify(extNames);
+
     if (!taskIdRaw || taskIdRaw.trim() === "") {
       // Create new task
       const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM tasks WHERE column_id = ${targetColumn?.id}`;
       
       const [newTask] = await sql<Task[]>`
-        INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by)
+        INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by, external_assignees)
         VALUES (${targetColumn?.id || null}, ${title || "Untitled Task"}, ${description || ""}, ${progress}, ${priorityClean},
-                ${dueDate ? sql`${dueDate}::timestamp` : null}, ${tags}, ${nextRow?.p ?? 0}, ${link.user_id})
+                ${dueDate ? sql`${dueDate}::timestamp` : null}, ${tags}, ${nextRow?.p ?? 0}, ${link.user_id}, ${externalAssignees})
         RETURNING *
       `;
       
+      if (realIds.length > 0) {
+        for (const uid of realIds) {
+          await sql`INSERT INTO task_assignees (task_id, user_id) VALUES (${newTask.id}, ${uid}) ON CONFLICT DO NOTHING`;
+        }
+      }
+
       console.log(`Created new task ${newTask.id} from sheet row ${row}`);
       // Sync back to provide taskId and version
       syncProjectToAllLinkedSheets(link.project_id);
@@ -85,6 +112,7 @@ sheetsWebhookRouter.post("/:syncToken", async (req, res) => {
         priority = ${priorityClean},
         due_date = ${dueDate ? sql`${dueDate}::timestamp` : null},
         tags = ${tags},
+        external_assignees = ${externalAssignees},
         column_id = ${targetColumn ? targetColumn.id : existing.column_id},
         completed_at = CASE 
           WHEN ${targetColumn?.is_done === 1} THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
@@ -95,7 +123,13 @@ sheetsWebhookRouter.post("/:syncToken", async (req, res) => {
       WHERE id = ${taskId}
     `;
 
-    // 3. Fan out to other sheets
+    // Update real assignees
+    await sql`DELETE FROM task_assignees WHERE task_id = ${taskId}`;
+    for (const uid of realIds) {
+      await sql`INSERT INTO task_assignees (task_id, user_id) VALUES (${taskId}, ${uid}) ON CONFLICT DO NOTHING`;
+    }
+
+    // 4. Fan out to other sheets
     syncProjectToAllLinkedSheets(link.project_id);
 
     res.json({ ok: true });

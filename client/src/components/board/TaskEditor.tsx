@@ -59,7 +59,12 @@ export function TaskEditor({
   const [progress, setProgress] = useState(task.progress ?? 0);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [selectedTags, setSelectedTags] = useState<string[]>(parseTags(task.tags));
-  const [assignees, setAssignees] = useState<string[]>(task.assignees?.map((a) => a.id) ?? []);
+  const [assignees, setAssignees] = useState<string[]>(
+    task.assignees?.filter((a) => !a.isGuest).map((a) => a.id!) ?? []
+  );
+  const [externalAssignees, setExternalAssignees] = useState<string[]>(
+    task.assignees?.filter((a) => a.isGuest).map((a) => a.name) ?? []
+  );
 
   const save = () => {
     let finalDueDate: string | null = null;
@@ -89,27 +94,25 @@ export function TaskEditor({
       priority,
       due_date: finalDueDate,
       tags: JSON.stringify(selectedTags),
-      assignees: assignees.map(id => {
-        const m = members.find(x => x.id === id);
-        return { 
-          id, 
-          name: m?.name ?? "Unknown", 
-          avatar_url: m?.avatar_url ?? "" 
-        };
-      })
+      assignees: [
+        ...assignees.map((id) => {
+          const m = members.find((x) => x.id === id);
+          return {
+            id,
+            name: m?.name ?? "Unknown",
+            avatar_url: m?.avatar_url ?? "",
+          };
+        }),
+        ...externalAssignees.map((name) => ({ name, isGuest: true })),
+      ],
     };
-    // Close immediately (optimistic)
-    onSave(updated);
-    // Fire API in background
+
     api.patch(`/tasks/${task.id}`, {
       ...updated,
-      progress,
-      dueDate: updated.due_date,
-      tags: selectedTags,
       assignees,
-    }).catch(() => {
-      // On error, parent reload will happen via onSave's catch chain
+      externalAssignees,
     });
+    onSave(updated);
   };
 
   const remove = async () => {
@@ -167,7 +170,7 @@ export function TaskEditor({
       </div>
 
       {/* assignees row below, same style */}
-      {members.length > 0 && (
+      {(members.length > 0 || externalAssignees.length > 0) && (
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {assignees.map((id) => {
             const m = members.find((x) => x.id === id);
@@ -180,7 +183,20 @@ export function TaskEditor({
               </Removable>
             );
           })}
-          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
+          {externalAssignees.map((name) => (
+            <Removable key={name} onRemove={() => setExternalAssignees(externalAssignees.filter((x) => x !== name))}>
+              <span title={`${name} (Guest)`}>
+                <Avatar name={name} size={24} />
+              </span>
+            </Removable>
+          ))}
+          <AssigneePicker
+            selected={assignees}
+            onChange={setAssignees}
+            externalSelected={externalAssignees}
+            onExternalChange={setExternalAssignees}
+            members={members}
+          />
         </div>
       )}
       <div className="flex items-center gap-2 pt-1">

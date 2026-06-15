@@ -12,6 +12,7 @@ interface QuickAddTaskProps {
     priority: Priority;
     progress: number;
     assignees: string[];
+    externalAssignees: string[];
   }) => Promise<void>;
   onCancel: () => void;
   tags?: TagDef[]; // workspace tag registry (empty for personal tasks)
@@ -25,6 +26,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
   const [progress, setProgress] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
+  const [externalAssignees, setExternalAssignees] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -52,6 +54,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
         priority,
         progress,
         assignees,
+        externalAssignees,
       });
       // onCreate is expected to call onCancel / close from the parent after success
     } finally {
@@ -104,7 +107,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
       </div>
 
       {/* assignees row below, same style */}
-      {members.length > 0 && (
+      {(members.length > 0 || externalAssignees.length > 0) && (
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {assignees.map((id) => {
             const m = members.find((x) => x.id === id);
@@ -117,7 +120,20 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
               </Removable>
             );
           })}
-          <AssigneePicker selected={assignees} onChange={setAssignees} members={members} />
+          {externalAssignees.map((name) => (
+            <Removable key={name} onRemove={() => setExternalAssignees(externalAssignees.filter((x) => x !== name))}>
+              <span title={`${name} (Guest)`}>
+                <Avatar name={name} size={24} />
+              </span>
+            </Removable>
+          ))}
+          <AssigneePicker
+            selected={assignees}
+            onChange={setAssignees}
+            externalSelected={externalAssignees}
+            onExternalChange={setExternalAssignees}
+            members={members}
+          />
         </div>
       )}
     </form>

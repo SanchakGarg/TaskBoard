@@ -249,16 +249,40 @@ export function TagPicker({
 export function AssigneePicker({
   selected,
   onChange,
+  externalSelected = [],
+  onExternalChange,
   members,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
+  externalSelected?: string[];
+  onExternalChange?: (names: string[]) => void;
   members: Member[];
 }) {
   const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
 
   const toggle = (id: string) =>
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  const toggleExternal = (name: string) =>
+    onExternalChange?.(
+      externalSelected.includes(name)
+        ? externalSelected.filter((x) => x !== name)
+        : [...externalSelected, name]
+    );
+
+  const filtered = members.filter((m) =>
+    m.name.toLowerCase().includes(input.trim().toLowerCase())
+  );
+
+  const createGuest = () => {
+    const name = input.trim();
+    if (name && !externalSelected.includes(name) && !members.some(m => m.name === name)) {
+      toggleExternal(name);
+    }
+    setInput("");
+  };
 
   return (
     <Popover
@@ -276,8 +300,21 @@ export function AssigneePicker({
         </button>
       }
     >
+      <Input
+        autoFocus
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && input.trim()) {
+            e.preventDefault();
+            createGuest();
+          }
+        }}
+        placeholder="Search or add guest…"
+        className="mb-1 !py-1 text-sm"
+      />
       <div className="flex max-h-44 flex-col overflow-y-auto">
-        {members.map((m) => (
+        {filtered.map((m) => (
           <button
             key={m.id}
             type="button"
@@ -289,8 +326,29 @@ export function AssigneePicker({
             {selected.includes(m.id) && <Check size={13} className="ml-auto shrink-0" />}
           </button>
         ))}
-        {members.length === 0 && (
-          <p className="px-2 py-1.5 text-sm text-ink-soft">No members in this workspace.</p>
+        {externalSelected.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => toggleExternal(name)}
+            className="anim-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-paper-dark"
+          >
+            <Avatar name={name} size={22} />
+            <span className="truncate">{name} (Guest)</span>
+            <Check size={13} className="ml-auto shrink-0" />
+          </button>
+        ))}
+        {filtered.length === 0 && input.trim() && !externalSelected.includes(input.trim()) && (
+          <button
+            type="button"
+            onClick={createGuest}
+            className="anim-hover cursor-pointer rounded-md px-2 py-1.5 text-left text-sm text-pen-blue hover:bg-paper-dark"
+          >
+            + Add guest "{input.trim()}"
+          </button>
+        )}
+        {members.length === 0 && !externalSelected.length && !input.trim() && (
+          <p className="px-2 py-1.5 text-sm text-ink-soft">No members.</p>
         )}
       </div>
     </Popover>
@@ -334,7 +392,7 @@ export function AvatarStack({ assignees, size = 22 }: { assignees: Assignee[]; s
   return (
     <span className="flex items-center">
       {assignees.slice(0, 4).map((a, i) => (
-        <span key={a.id} style={{ marginLeft: i === 0 ? 0 : -6 }} title={a.name}>
+        <span key={a.id ?? a.name} style={{ marginLeft: i === 0 ? 0 : -6 }} title={a.name}>
           <Avatar name={a.name} src={a.avatar_url || undefined} size={size} />
         </span>
       ))}

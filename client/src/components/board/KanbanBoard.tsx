@@ -172,7 +172,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
 
   const createTask = async (
     columnId: string,
-    data: { title: string; dueDate?: string; tags: string[]; priority: string; progress: number; assignees: string[] }
+    data: { title: string; dueDate?: string; tags: string[]; priority: string; progress: number; assignees: string[]; externalAssignees: string[] }
   ) => {
     const newTask = await api.post<Task>("/tasks", { columnId, ...data });
     // Optimistically add to local state — no full reload needed

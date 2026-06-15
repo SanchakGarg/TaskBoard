@@ -161,22 +161,23 @@ const registerTags = async (workspaceId: string, names: string[]) => {
 // ---------- assignees ----------
 
 interface Assignee {
-  id: string;
+  id?: string;
   name: string;
-  avatar_url: string;
+  avatar_url?: string;
+  isGuest?: boolean;
 }
 
 const assigneesFor = async (taskIds: string[]): Promise<Map<string, Assignee[]>> => {
   const map = new Map<string, Assignee[]>();
   if (!taskIds.length) return map;
-  const rows = await sql<(Assignee & { task_id: string })[]>`
-    SELECT ta.task_id, u.id, u.name, u.avatar_url FROM task_assignees ta
+  const rows = await sql<(Assignee & { task_id: string; user_id: string })[]>`
+    SELECT ta.task_id, u.id as user_id, u.name, u.avatar_url FROM task_assignees ta
     JOIN users u ON u.id = ta.user_id
     WHERE ta.task_id IN ${sql(taskIds)}
   `;
   for (const r of rows) {
     const list = map.get(r.task_id) ?? [];
-    list.push({ id: r.id, name: r.name, avatar_url: r.avatar_url });
+    list.push({ id: r.user_id, name: r.name, avatar_url: r.avatar_url });
     map.set(r.task_id, list);
   }
   return map;
@@ -192,9 +193,19 @@ const setAssignees = async (taskId: string, workspaceId: string, userIds: unknow
   }
 };
 
-const withAssignees = async <T extends { id: string }>(tasks: T[]): Promise<(T & { assignees: Assignee[] })[]> => {
+const withAssignees = async <T extends { id: string; external_assignees?: string }>(tasks: T[]): Promise<(T & { assignees: Assignee[] })[]> => {
   const map = await assigneesFor(tasks.map((t) => t.id));
-  return tasks.map((t) => ({ ...t, assignees: map.get(t.id) ?? [] }));
+  return tasks.map((t) => {
+    const real = map.get(t.id) ?? [];
+    const ext = JSON.parse(t.external_assignees || "[]") as string[];
+    return {
+      ...t,
+      assignees: [
+        ...real,
+        ...ext.map((name) => ({ name, isGuest: true })),
+      ],
+    };
+  });
 };
 
 const emailsOf = async (userIds: string[]): Promise<string[]> => {
@@ -779,10 +790,14 @@ apiRouter.post("/tasks", async (req, res) => {
 
   const creatorId = u?.id ?? '00000000-0000-0000-0000-000000000000';
 
+  const externalAssignees = Array.isArray(req.body?.externalAssignees)
+    ? JSON.stringify(req.body.externalAssignees.filter((n: any) => typeof n === "string").map((n: string) => n.trim()).filter(Boolean))
+    : "[]";
+
   const [task] = await sql<Task[]>`
-    INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by)
+    INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by, external_assignees)
     VALUES (${columnId ?? null}, ${title}, ${str(req.body?.description, 10000) ?? ""}, ${progress}, ${priority},
-            ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${creatorId})
+            ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${creatorId}, ${externalAssignees})
     RETURNING *
   `;
 
@@ -836,12 +851,15 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
         ? null
         : existing.completed_at;
 
-  const [task] = await sql<Task[]>`
-    UPDATE tasks SET title = ${title}, description = ${description}, progress = ${progress}, priority = ${priority},
-    due_date = ${dueDate ?? null}::timestamp, tags = ${tags}, completed_at = ${completedAt ?? null}::timestamp,
-    updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id} RETURNING *
-  `;
+        const externalAssignees = Array.isArray(req.body?.externalAssignees)
+        ? JSON.stringify(req.body.externalAssignees.filter((n: any) => typeof n === "string").map((n: string) => n.trim()).filter(Boolean))
+        : existing.external_assignees;
 
+        const [task] = await sql<Task[]>`
+        UPDATE tasks SET title = ${title}, description = ${description}, progress = ${progress}, priority = ${priority},
+        due_date = ${dueDate ?? null}::timestamp, tags = ${tags}, external_assignees = ${externalAssignees}, 
+        completed_at = ${completedAt ?? null}::timestamp, updated_at = CURRENT_TIMESTAMP WHERE id = ${existing.id} RETURNING *
+        `;
   const u = user(req);
   if (existing.workspace_id !== null && Array.isArray(req.body?.assignees) && atLeast(role, "write") && u) {
     const before = new Set(((await assigneesFor([existing.id])).get(existing.id) ?? []).map((a) => a.id));

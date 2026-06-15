@@ -406,19 +406,24 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
       const pColumns = await sql<{ id: string; name: string }[]>`SELECT id, name FROM columns WHERE project_id = ${l.project_id}`;
       const pColMap = new Map(pColumns.map(c => [c.id, c.name]));
 
-      const pValues = pTasks.map((t) => [
-        t.id,
-        t.title,
-        t.description,
-        t.progress,
-        (pAssigneeMap.get(t.id) ?? []).join(", "),
-        pColMap.get(t.column_id!) || "",
-        t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
-        t.priority,
-        JSON.parse(t.tags || "[]").join(", "),
-        new Date(t.updated_at).getTime(),
-      ]);
+      const pValues = pTasks.map((t) => {
+        const realNames = pAssigneeMap.get(t.id) ?? [];
+        const extNames = JSON.parse(t.external_assignees || "[]") as string[];
+        const allNames = [...realNames, ...extNames];
 
+        return [
+          t.id,
+          t.title,
+          t.description,
+          t.progress,
+          allNames.join(", "),
+          pColMap.get(t.column_id!) || "",
+          t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
+          t.priority,
+          JSON.parse(t.tags || "[]").join(", "),
+          new Date(t.updated_at).getTime(),
+        ];
+      });
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${tabName}!A${currentRow}`,
