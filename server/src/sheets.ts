@@ -231,7 +231,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
               columnProperties: [
                 {
                   columnIndex: 3,
-                  columnType: "NUMBER",
+                  columnType: "TEXT",
                 },
                 {
                   columnIndex: 5,
@@ -398,7 +398,7 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
                 columnProperties: [
                   {
                     columnIndex: 3,
-                    columnType: "NUMBER",
+                    columnType: "TEXT",
                   },
                   {
                     columnIndex: 5,
