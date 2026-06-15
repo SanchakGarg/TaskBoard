@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Copy, ExternalLink, Link2, Trash2, UserPlus } from "lucide-react";
+import { Copy, ExternalLink, Link2, Trash2, UserPlus, Globe, Users, FileSpreadsheet } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type { Project, ProjectMember, Role } from "../lib/types";
-import { Avatar, Badge, Button, Divider, Dropdown, Input, Modal, Toggle, showToast, useConfirm } from "./ui";
+import { Avatar, Badge, Button, Dropdown, Input, Modal, Toggle, showToast, useConfirm, Card } from "./ui";
 
 interface ProjectShareSettingsProps {
   project: Project;
@@ -82,7 +82,7 @@ export function ProjectShareSettings({ project, role, onClose, onSaved }: Projec
     try {
       const link = await api.post(`/projects/${project.id}/sheet-link`, {});
       setSheetLink(link);
-      showToast("Google Sheet linked successfully.", "success");
+      showToast("Google Sheet created and linked.", "success");
     } catch (e) {
       showToast("Failed to link Google Sheet.", "error");
     } finally {
@@ -91,11 +91,12 @@ export function ProjectShareSettings({ project, role, onClose, onSaved }: Projec
   };
 
   const unlinkSheet = async () => {
-    if (await confirm("Unlink this Google Sheet? Bidirectional sync will stop.")) {
+    const msg = "Are you sure? This will UNLINK the sheet and PERMANENTLY DELETE the spreadsheet file from your Google Drive. This action cannot be undone.";
+    if (await confirm(msg)) {
       try {
         await api.delete(`/projects/${project.id}/sheet-link`);
         setSheetLink(null);
-        showToast("Google Sheet unlinked.", "success");
+        showToast("Google Sheet unlinked and file deleted.", "success");
       } catch (e) {
         showToast("Failed to unlink Google Sheet.", "error");
       }
@@ -141,198 +142,205 @@ function onEdit(e) {
 
   return (
     <Modal open onClose={onClose} title="Project sharing" wide>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <section>
-          <h3 className="font-hand mb-2 font-bold">Public Link</h3>
-          <div className="mb-3 flex items-center justify-between rounded-lg border-2 border-ink/10 bg-paper-dark/30 p-3">
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-ink">Public access</span>
-              <span className="text-xs text-ink-soft">Anyone with the link can open this project.</span>
-            </div>
-            <Toggle checked={shareEnabled} disabled={!isAdmin} onChange={setShareEnabled} />
+          <div className="mb-3 flex items-center gap-2">
+            <Globe size={18} className="text-ink-soft" />
+            <h3 className="font-hand text-lg font-bold">Public Access</h3>
           </div>
-
-          {shareEnabled && (
-            <div className="flex flex-col gap-2 rounded-lg border-2 border-pen-blue/20 bg-pen-blue/5 p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase text-ink-soft">Public permissions</span>
-                <Dropdown
-                  value={shareRole}
-                  options={roleOptions.filter((o) => o.value !== "admin")}
-                  onChange={setShareRole}
-                  disabled={!isAdmin}
-                  className="w-28 text-xs"
-                />
+          <Card className="!p-0 overflow-hidden">
+            <div className="flex items-center justify-between p-4 bg-paper-dark/5">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-ink">Public link sharing</span>
+                <span className="text-xs text-ink-soft italic">Anyone with the link can view/edit based on role.</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1 truncate rounded border border-ink/20 bg-paper px-2 py-1 font-mono text-xs text-ink-soft">
-                  {shareUrl}
+              <Toggle checked={shareEnabled} disabled={!isAdmin} onChange={setShareEnabled} />
+            </div>
+
+            {shareEnabled && (
+              <div className="p-4 border-t border-ink/10 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-soft">Visitor Role</span>
+                  <Dropdown
+                    value={shareRole}
+                    options={roleOptions.filter((o) => o.value !== "admin")}
+                    onChange={setShareRole}
+                    disabled={!isAdmin}
+                    className="w-32 text-xs"
+                  />
                 </div>
-                <Button size="sm" variant="secondary" onClick={copyLink}>
-                  <Copy size={14} /> Copy
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => window.open(shareUrl, "_blank")}>
-                  <Link2 size={14} /> Open
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 truncate rounded-lg border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
+                    {shareUrl}
+                  </div>
+                  <Button size="sm" variant="secondary" onClick={copyLink}>
+                    <Copy size={14} className="mr-1.5" /> Copy
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => window.open(shareUrl, "_blank")}>
+                    <Link2 size={14} />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="p-3 bg-paper-dark/5 border-t border-ink/10 flex justify-end">
+                <Button size="sm" onClick={saveSharing} disabled={saving}>
+                  {saving ? "Saving..." : "Save sharing settings"}
                 </Button>
               </div>
-            </div>
-          )}
-
-          {isAdmin && (
-            <div className="mt-3 flex justify-end">
-              <Button size="sm" onClick={saveSharing} disabled={saving}>
-                {saving ? "Saving..." : "Save public link"}
-              </Button>
-            </div>
-          )}
+            )}
+          </Card>
         </section>
 
-        <Divider />
-
         <section>
-          <h3 className="font-hand mb-2 font-bold">Project Members</h3>
-          <p className="mb-3 text-xs text-ink-soft">
-            Share this project with people even if they are not in the workspace.
-          </p>
+          <div className="mb-3 flex items-center gap-2">
+            <Users size={18} className="text-ink-soft" />
+            <h3 className="font-hand text-lg font-bold">Project Members</h3>
+          </div>
+          <Card className="!p-3">
+            <ul className="flex flex-col gap-2">
+              {projectMembers.map((m) => (
+                <li key={m.id} className="flex items-center gap-2">
+                  <Avatar name={m.name} src={m.avatar_url || undefined} size={28} />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-bold">{m.name}</span>
+                    <span className="truncate text-xs text-ink-soft">{m.email}</span>
+                  </div>
+                  {m.is_owner ? (
+                    <Badge tone="green">Owner</Badge>
+                  ) : isAdmin ? (
+                    <div className="flex items-center gap-1">
+                      <Dropdown
+                        value={m.role}
+                        options={roleOptions.filter((o) => o.value !== "admin")}
+                        onChange={async (newRole) => {
+                          await api.patch(`/projects/${project.id}/members/${m.id}`, { role: newRole });
+                          load();
+                        }}
+                        className="w-24 text-xs"
+                      />
+                      <button
+                        aria-label={`Remove ${m.name}`}
+                        onClick={() => removeProjectMember(m.id, m.name, m.is_pending)}
+                        className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <Badge tone="neutral">{m.role}</Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
 
-          <ul className="mb-3 flex flex-col gap-1.5">
-            {projectMembers.map((m) => (
-              <li key={m.id} className="flex items-center gap-2">
-                <Avatar name={m.name} src={m.avatar_url || undefined} size={24} />
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  {m.name}
-                  <span className="ml-1.5 hidden text-xs text-ink-soft sm:inline">{m.email}</span>
-                </span>
-                {m.is_owner ? (
-                  <Badge tone="green">Owner</Badge>
-                ) : isAdmin ? (
-                  <span className="flex items-center gap-1">
-                    <Dropdown
-                      value={m.role}
-                      options={roleOptions.filter((o) => o.value !== "admin")}
-                      onChange={async (newRole) => {
-                        await api.patch(`/projects/${project.id}/members/${m.id}`, { role: newRole });
-                        load();
-                      }}
-                      className="w-24 text-xs"
-                    />
-                    <button
-                      aria-label={`Remove ${m.name}`}
-                      onClick={() => removeProjectMember(m.id, m.name, m.is_pending)}
-                      className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-red"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </span>
-                ) : (
-                  <Badge tone="neutral">{m.role}</Badge>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {isAdmin && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                addProjectMember();
-              }}
-              className="flex flex-wrap items-center gap-2"
-            >
-              <Input
-                type="email"
-                placeholder="person@email.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="!w-44 !py-1 text-xs"
-              />
-              <Dropdown
-                value={inviteRole}
-                options={roleOptions.filter((o) => o.value !== "admin")}
-                onChange={setInviteRole}
-                className="w-24 text-xs"
-              />
-              <Button type="submit" size="xs" disabled={!inviteEmail.trim()}>
-                <UserPlus size={12} /> Invite
-              </Button>
-              {inviteError && <p className="w-full text-[10px] text-pen-red">{inviteError}</p>}
-            </form>
-          )}
+            {isAdmin && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addProjectMember();
+                }}
+                className="mt-4 border-t border-ink/10 pt-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Invite to project..."
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="!w-44 !py-1.5 text-xs"
+                  />
+                  <Dropdown
+                    value={inviteRole}
+                    options={roleOptions.filter((o) => o.value !== "admin")}
+                    onChange={setInviteRole}
+                    className="w-24 text-xs"
+                  />
+                  <Button type="submit" size="sm" disabled={!inviteEmail.trim()}>
+                    <UserPlus size={14} className="mr-1.5" /> Invite
+                  </Button>
+                </div>
+                {inviteError && <p className="mt-1 text-xs text-pen-red">{inviteError}</p>}
+              </form>
+            )}
+          </Card>
         </section>
 
-        <Divider />
-
         <section>
-          <h3 className="font-hand mb-2 font-bold">Google Sheets</h3>
+          <div className="mb-3 flex items-center gap-2">
+            <FileSpreadsheet size={18} className="text-ink-soft" />
+            <h3 className="font-hand text-lg font-bold">Google Sheets Sync</h3>
+          </div>
           {!googleStatus?.hasSheets ? (
-            <div className="rounded-lg border-2 border-dashed border-ink/20 p-4 text-center">
-              <p className="mb-2 text-sm text-ink-soft">
-                {googleStatus?.connected
-                  ? "Your Google account is connected but needs additional permissions for Sheets."
-                  : "Connect your Google account to enable bidirectional sync with Sheets."}
+            <Card className="flex flex-col items-center border-dashed border-ink/30 bg-paper-dark/10 p-6 text-center">
+              <p className="mb-4 text-sm text-ink-soft">
+                Connect your Google account to enable bidirectional sync with Sheets.
               </p>
               <Button size="sm" onClick={connectGoogle}>
                 <ExternalLink size={14} className="mr-1.5" />
                 {googleStatus?.connected ? "Reconnect Google" : "Connect Google Account"}
               </Button>
-            </div>
+            </Card>
           ) : sheetLink ? (
-            <div className="flex flex-col gap-3 rounded-lg border-2 border-pen-blue/20 bg-pen-blue/5 p-3">
-              <div className="flex items-center justify-between">
+            <Card className="border-pen-blue/40 bg-pen-blue/5">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm font-bold text-ink">Linked Spreadsheet</p>
-                  <p className="text-xs text-ink-soft">Tab: {sheetLink.tab_name}</p>
+                  <p className="text-xs text-ink-soft italic">Tab: {sheetLink.tab_name}</p>
                 </div>
                 <Badge tone="green">Sync Active</Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1 truncate rounded border border-ink/20 bg-paper px-2 py-1 font-mono text-xs text-ink-soft">
+              
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0 flex-1 truncate rounded-lg border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
                   {sheetLink.spreadsheet_url}
                 </div>
-                <Button size="sm" variant="secondary" onClick={() => window.open(sheetLink.spreadsheet_url, "_blank")}>
-                  <ExternalLink size={14} /> Open
-                </Button>
-                <Button size="sm" variant="ghost" onClick={unlinkSheet} className="!text-pen-red">
-                  <Trash2 size={14} />
-                </Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" size="sm" variant="secondary" onClick={() => window.open(sheetLink.spreadsheet_url, "_blank")}>
+                    <ExternalLink size={14} className="mr-1.5" /> Open Sheet
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={unlinkSheet} className="!text-pen-red">
+                    <Trash2 size={14} className="mr-1.5" /> Unlink & Delete
+                  </Button>
+                </div>
               </div>
 
-              <div className="mt-2">
+              <div className="mt-4 border-t border-ink/10 pt-3">
                 <button
                   onClick={() => setShowScript(!showScript)}
-                  className="text-[10px] font-bold uppercase tracking-wider text-ink-soft hover:text-ink"
+                  className="text-[10px] font-bold uppercase tracking-wider text-ink-soft hover:text-ink flex items-center gap-1"
                 >
-                  {showScript ? "Hide" : "Show"} Bidirectional Sync Setup (Optional)
+                  {showScript ? "▼" : "▶"} Bidirectional Sync Setup (Optional)
                 </button>
                 {showScript && (
                   <div className="mt-2 flex flex-col gap-2">
-                    <p className="text-[10px] text-ink-soft">
-                      To enable sync from Sheet to App: Open Extensions &gt; Apps Script, paste this code, and Save.
-                      Then add an "On edit" trigger.
+                    <p className="text-[10px] text-ink-soft leading-relaxed italic">
+                      To enable sync from Sheet back to this App: Open your spreadsheet, go to **Extensions &gt; Apps Script**, paste the code below, and **Save**. Then click the clock icon (Triggers) and add a new trigger for the `onEdit` function with event type "On edit".
                     </p>
-                    <pre className="max-h-32 overflow-auto rounded bg-ink/5 p-2 font-mono text-[10px] text-ink">
+                    <pre className="max-h-40 overflow-auto rounded-lg border-2 border-ink/5 bg-ink/5 p-3 font-mono text-[10px] text-ink leading-normal">
                       {appsScript}
                     </pre>
-                    <Button size="xs" variant="secondary" onClick={() => {
+                    <Button size="xs" variant="secondary" className="self-end" onClick={() => {
                       navigator.clipboard.writeText(appsScript);
-                      showToast("Apps Script copied.", "success");
+                      showToast("Apps Script copied to clipboard.", "success");
                     }}>
-                      Copy Script
+                      <Copy size={12} className="mr-1.5" /> Copy Script
                     </Button>
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           ) : (
-            <div className="flex items-center justify-between rounded-lg border-2 border-dashed border-ink/20 p-3">
-              <div>
+            <Card className="flex items-center justify-between border-dashed border-ink/30 bg-paper-dark/5 p-4">
+              <div className="flex flex-col">
                 <p className="text-sm font-bold">No sheet linked yet</p>
-                <p className="text-xs text-ink-soft">Create a new spreadsheet for this project.</p>
+                <p className="text-xs text-ink-soft italic">Create a new spreadsheet for this project.</p>
               </div>
               <Button size="sm" variant="secondary" onClick={linkSheet} disabled={linking}>
                 {linking ? "Linking..." : "Link sheet"}
               </Button>
-            </div>
+            </Card>
           )}
         </section>
       </div>

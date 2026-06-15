@@ -612,7 +612,18 @@ apiRouter.delete("/projects/:id/sheet-link", async (req, res) => {
   const projectId = req.params.id;
   const u = user(req);
   if (!u) return forbidden(res);
-  await sql`DELETE FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+  
+  const [link] = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+  if (link) {
+    try {
+      const auth = await getGoogleAuth(u.id);
+      const drive = google.drive({ version: "v3", auth });
+      await drive.files.delete({ fileId: link.spreadsheet_id });
+    } catch (err) {
+      console.error("Failed to delete drive file during unlink:", err);
+    }
+    await sql`DELETE FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+  }
   res.json({ ok: true });
 });
 
@@ -681,10 +692,33 @@ apiRouter.delete("/workspaces/:id/sheet-links", async (req, res) => {
   const workspaceId = req.params.id;
   const u = user(req);
   if (!u) return forbidden(res);
-  await sql`
-    DELETE FROM project_sheet_links 
-    WHERE user_id = ${u.id} AND project_id IN (SELECT id FROM projects WHERE workspace_id = ${workspaceId})
+
+  const links = await sql<ProjectSheetLink[]>`
+    SELECT psl.* FROM project_sheet_links psl
+    JOIN projects p ON p.id = psl.project_id
+    WHERE p.workspace_id = ${workspaceId} AND psl.user_id = ${u.id}
   `;
+
+  if (links.length > 0) {
+    try {
+      const auth = await getGoogleAuth(u.id);
+      const drive = google.drive({ version: "v3", auth });
+      const uniqueSheetIds = [...new Set(links.map(l => l.spreadsheet_id))];
+
+      for (const fileId of uniqueSheetIds) {
+        await drive.files.delete({ fileId }).catch(err => {
+          console.error(`Failed to delete drive file ${fileId}:`, err);
+        });
+      }
+    } catch (err) {
+      console.error("Failed to delete drive files during workspace unlink:", err);
+    }
+
+    await sql`
+      DELETE FROM project_sheet_links
+      WHERE user_id = ${u.id} AND project_id IN (SELECT id FROM projects WHERE workspace_id = ${workspaceId})
+    `;
+  }
   res.json({ ok: true });
 });
 
