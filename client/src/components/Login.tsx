@@ -54,18 +54,10 @@ export function Login() {
           </div>
         )}
 
-        <div className="mt-8 text-left text-sm text-ink-soft bg-ink/5 p-4 rounded-lg">
-          <h2 className="font-bold text-ink mb-2">App Features</h2>
-          <ul className="list-disc pl-4 space-y-1">
-            <li>Organize tasks in Kanban boards and lists</li>
-            <li>Collaborate with team members in real-time</li>
-            <li>Two-way synchronization with Google Sheets</li>
-          </ul>
-        </div>
-
         <Coffee size={36} className="mx-auto mt-6 text-ink-soft/60" />
 
-        <div className="mt-8 pt-6 border-t border-ink/10 text-xs text-ink-soft">
+        <div className="mt-8 pt-6 border-t border-ink/10 text-xs text-ink-soft flex justify-center gap-4">
+          <a href="#/about" className="hover:underline hover:text-ink transition-colors">About</a>
           <a href="#/privacy" className="hover:underline hover:text-ink transition-colors">Privacy Policy</a>
         </div>
       </Card>
