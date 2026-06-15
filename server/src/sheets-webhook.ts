@@ -9,16 +9,21 @@ sheetsWebhookRouter.post("/:syncToken", async (req, res) => {
   const { syncToken } = req.params;
   const { spreadsheetId, sheetId, row } = req.body;
 
+  console.log(`Webhook triggered: token=${syncToken}, spreadsheet=${spreadsheetId}, row=${row}`);
+
   if (!syncToken) return res.status(400).json({ error: "syncToken required" });
 
   const [link] = await sql<any[]>`SELECT * FROM project_sheet_links WHERE sync_token = ${syncToken} AND spreadsheet_id = ${spreadsheetId}`;
-  if (!link) return res.status(404).json({ error: "link not found" });
+  if (!link) {
+    console.warn(`No link found for token ${syncToken} and spreadsheet ${spreadsheetId}`);
+    return res.status(404).json({ error: "link not found" });
+  }
 
-  console.log(`Received sheet webhook for project ${link.project_id}, user ${link.user_id}, row ${row}`);
+  console.log(`Matched project ${link.project_id}, user ${link.user_id}, tab ${link.tab_name}`);
 
   try {
     const auth = await getGoogleAuth(link.user_id);
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = google.sheets({ version: "v4", auth: auth as any });
 
     // Fetch the updated row
     const response = await sheets.spreadsheets.values.get({

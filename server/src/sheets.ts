@@ -17,7 +17,7 @@ export function encrypt(text: string) {
 
 function decrypt(text: string) {
   const [ivHex, encryptedText] = text.split(":");
-  if (!ivHex || !encryptedText) return text; // Fallback for unencrypted old tokens if any
+  if (!ivHex || !encryptedText) return text; 
   const iv = Buffer.from(ivHex, "hex");
   const key = crypto.scryptSync(config.encryptionKey, "salt", 32);
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
@@ -51,7 +51,6 @@ export async function getGoogleAuth(userId: string): Promise<OAuth2Client> {
     expiry_date: token.expiry_date ? Number(token.expiry_date) : undefined,
   });
 
-  // Automatically refresh if expired
   oauth2Client.on("tokens", async (newTokens) => {
     if (newTokens.access_token) {
       await sql`
@@ -69,7 +68,7 @@ export async function getGoogleAuth(userId: string): Promise<OAuth2Client> {
 
 export async function addStatusValidation(userId: string, projectId: string, spreadsheetId: string, sheetId: string) {
   const auth = await getGoogleAuth(userId);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = google.sheets({ version: "v4", auth: auth as any });
 
   const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${projectId} ORDER BY position`;
   const columnNames = columns.map((c) => c.name);
@@ -84,9 +83,9 @@ export async function addStatusValidation(userId: string, projectId: string, spr
           setDataValidation: {
             range: {
               sheetId: Number(sheetId),
-              startRowIndex: 1, // Skip header
+              startRowIndex: 1, 
               endRowIndex: 1000,
-              startColumnIndex: 5, // Status column (F)
+              startColumnIndex: 5, 
               endColumnIndex: 6,
             },
             rule: {
@@ -106,8 +105,7 @@ export async function addStatusValidation(userId: string, projectId: string, spr
 
 export async function createProjectSheet(userId: string, projectName: string, projectId: string) {
   const auth = await getGoogleAuth(userId);
-  const sheets = google.sheets({ version: "v4", auth });
-  const drive = google.drive({ version: "v3", auth });
+  const sheets = google.sheets({ version: "v4", auth: auth as any });
 
   const resource = {
     properties: {
@@ -125,7 +123,6 @@ export async function createProjectSheet(userId: string, projectName: string, pr
 
   const sheetId = String(spreadsheet.data.sheets?.[0]?.properties?.sheetId ?? 0);
 
-  // Set headers
   const headers = [
     "ID (Internal)",
     "Task Name",
@@ -151,7 +148,6 @@ export async function createProjectSheet(userId: string, projectName: string, pr
   const columns = await sql<{ name: string }[]>`SELECT name FROM columns WHERE project_id = ${projectId} ORDER BY position`;
   const statusOptions = columns.map(c => c.name);
 
-  // Freeze top row, hide internal columns, and format header
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
@@ -160,53 +156,28 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           updateSheetProperties: {
             properties: {
               sheetId: Number(sheetId),
-              gridProperties: {
-                frozenRowCount: 1,
-              },
+              gridProperties: { frozenRowCount: 1 },
             },
             fields: "gridProperties.frozenRowCount",
           },
         },
         {
-          repeatCell: {
-            range: {
-              sheetId: Number(sheetId),
-              startRowIndex: 0,
-              endRowIndex: 1,
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
-                textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
-                horizontalAlignment: "CENTER",
-              },
-            },
-            fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
-          },
-        },
-        {
           updateDimensionProperties: {
-            range: {
-              sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 0, endIndex: 1,
-            },
+            range: { sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
             properties: { hiddenByUser: true },
             fields: "hiddenByUser",
           },
         },
         {
           updateDimensionProperties: {
-            range: {
-              sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 9, endIndex: 10,
-            },
+            range: { sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 9, endIndex: 10 },
             properties: { hiddenByUser: true },
             fields: "hiddenByUser",
           },
         },
         {
           setDataValidation: {
-            range: {
-              sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6,
-            },
+            range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 1000, startColumnIndex: 5, endColumnIndex: 6 },
             rule: {
               condition: { type: "ONE_OF_LIST", values: statusOptions.map(v => ({ userEnteredValue: v })) },
               showCustomUi: true,
@@ -238,27 +209,18 @@ export async function createProjectSheet(userId: string, projectName: string, pr
           },
         },
         {
-          addBanding: {
-            bandedRange: {
+          addTable: {
+            table: {
               range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-              rowProperties: {
-                headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
-                firstBandColor: { red: 1, green: 1, blue: 1 },
-                secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
-              },
-            },
-          },
-        },
-        {
-          setBasicFilter: {
-            filter: {
-              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-            },
-          },
-        },
-        ],
-        },
-        });
+              spec: {
+                hasHeaderRow: true,
+              }
+            } as any
+          }
+        }
+      ],
+    },
+  });
 
   return {
     spreadsheetId,
@@ -270,7 +232,7 @@ export async function createProjectSheet(userId: string, projectName: string, pr
 
 export async function createWorkspaceSheet(userId: string, workspaceName: string, projects: { id: string, name: string }[], layoutMode: 'single' | 'stacked') {
   const auth = await getGoogleAuth(userId);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = google.sheets({ version: "v4", auth: auth as any });
 
   const resource = {
     properties: {
@@ -287,17 +249,14 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
   if (!spreadsheetId) throw new Error("Failed to create spreadsheet");
 
   const results: { projectId: string, sheetId: string, tabName: string }[] = [];
-
-  // Remove the default "Sheet1" or rename it if needed, but easier to just add new ones and delete it
   const defaultSheetId = spreadsheet.data.sheets?.[0]?.properties?.sheetId;
 
   for (let i = 0; i < projects.length; i++) {
     const p = projects[i];
-    const tabName = p.name.replace(/[\[\]\*\?\/\\]/g, ""); // Basic cleanup for tab name
+    const tabName = p.name.replace(/[\[\]\*\?\/\\]/g, ""); 
 
     let sheetId: string;
     if (i === 0 && layoutMode === 'stacked') {
-      // Use the first sheet for stacked
       sheetId = String(defaultSheetId);
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
@@ -358,19 +317,6 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
             },
           },
           {
-            repeatCell: {
-              range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1 },
-              cell: {
-                userEnteredFormat: {
-                  backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
-                  textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true },
-                  horizontalAlignment: "CENTER",
-                },
-              },
-              fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
-            },
-          },
-          {
             updateDimensionProperties: {
               range: { sheetId: Number(sheetId), dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
               properties: { hiddenByUser: true },
@@ -418,24 +364,15 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
             },
           },
           {
-            addBanding: {
-              bandedRange: {
+            addTable: {
+              table: {
                 range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-                rowProperties: {
-                  headerColor: { red: 0.2, green: 0.2, blue: 0.2 },
-                  firstBandColor: { red: 1, green: 1, blue: 1 },
-                  secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
-                },
-              },
-            },
-          },
-          {
-            setBasicFilter: {
-              filter: {
-                range: { sheetId: Number(sheetId), startRowIndex: 0, endRowIndex: 1000, startColumnIndex: 0, endColumnIndex: 10 },
-              },
-            },
-          },
+                spec: {
+                  hasHeaderRow: true,
+                }
+              } as any
+            }
+          }
         ],
       },
     });
@@ -443,7 +380,6 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
     results.push({ projectId: p.id, sheetId, tabName: layoutMode === 'stacked' ? 'All Projects' : tabName });
   }
 
-  // If we created separate tabs, delete the default Sheet1 if it's still there and unused
   if (layoutMode === 'single' && defaultSheetId !== undefined) {
     try {
       await sheets.spreadsheets.batchUpdate({
@@ -466,25 +402,21 @@ export async function createWorkspaceSheet(userId: string, workspaceName: string
 
 export async function syncProjectToSheet(userId: string, projectId: string, spreadsheetId: string, tabName: string) {
   const auth = await getGoogleAuth(userId);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = google.sheets({ version: "v4", auth: auth as any });
 
   try {
-    // Check if spreadsheet exists
     await sheets.spreadsheets.get({ spreadsheetId });
   } catch (err: any) {
     if (err.code === 404 || err.code === 403) {
-      console.warn(`Spreadsheet ${spreadsheetId} not found or inaccessible. Marking link as disconnected.`);
-      // Optional: Update DB to mark link as broken
+      console.warn(`Spreadsheet ${spreadsheetId} not found or inaccessible.`);
       return;
     }
     throw err;
   }
 
-  // Fetch link info to check layout
   const [link] = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND spreadsheet_id = ${spreadsheetId} AND user_id = ${userId}`;
   if (!link) return;
 
-  // Fetch tasks with assignees
   const columns = await sql<{ id: string; name: string; is_done: number }[]>`SELECT id, name, is_done FROM columns WHERE project_id = ${projectId} ORDER BY position`;
   if (!columns.length) return;
 
@@ -496,7 +428,6 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
     ORDER BY t.column_id, t.position
   `;
 
-  // Fetch all assignees for these tasks
   const taskIds = tasks.map((t) => t.id);
   const assigneeRows = taskIds.length 
     ? await sql<{ task_id: string; name: string }[]>`
@@ -515,25 +446,28 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
 
   const colMap = new Map(columns.map((c) => [c.id, c.name]));
 
-  const values = tasks.map((t) => [
-    t.id,
-    t.title,
-    t.description,
-    t.progress,
-    (assigneeMap.get(t.id) ?? []).join(", "),
-    colMap.get(t.column_id!) || "",
-    t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
-    t.priority,
-    JSON.parse(t.tags || "[]").join(", "),
-    new Date(t.updated_at).getTime(), // _version
-  ]);
+  const values = tasks.map((t) => {
+    const realNames = assigneeMap.get(t.id) ?? [];
+    const extNames = JSON.parse(t.external_assignees || "[]") as string[];
+    const allNames = [...realNames, ...extNames];
+
+    return [
+      t.id,
+      t.title,
+      t.description,
+      t.progress,
+      allNames.join(", "),
+      colMap.get(t.column_id!) || "",
+      t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
+      t.priority,
+      JSON.parse(t.tags || "[]").join(", "),
+      new Date(t.updated_at).getTime(), 
+    ];
+  });
 
   if (link.layout_mode === 'stacked') {
-    // For stacked, we need to be careful. A simpler approach for now:
-    // Fetch all project links for this spreadsheet and user.
     const allLinks = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE spreadsheet_id = ${spreadsheetId} AND user_id = ${userId} ORDER BY created_at`;
     
-    // Clear everything below headers
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: `${tabName}!A2:Z5000`,
@@ -541,7 +475,6 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
 
     let currentRow = 2;
     for (const l of allLinks) {
-      // Fetch tasks for this specific project link
       const pTasks = await sql<any[]>`
         SELECT t.* FROM tasks t
         JOIN columns c ON c.id = t.column_id
@@ -593,19 +526,15 @@ export async function syncProjectToSheet(userId: string, projectId: string, spre
       currentRow += pValues.length;
     }
   } else {
-    // Standard single-tab overwrite
     if (values.length) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${tabName}!A2`,
         valueInputOption: "RAW",
-        requestBody: {
-          values,
-        },
+        requestBody: { values },
       });
     }
     
-    // Clear only remaining rows if tasks were deleted, to preserve formatting in managed rows
     const nextRow = values.length + 2;
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
@@ -630,29 +559,19 @@ export async function syncProjectToAllLinkedSheets(projectId: string) {
     syncDebounceMap.delete(projectId);
     const links = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE project_id = ${projectId}`;
     for (const link of links) {
-      // Background sync
       syncProjectToSheet(link.user_id, projectId, link.spreadsheet_id, link.tab_name).catch((err) => {
         console.error(`Background sync failed for project ${projectId}, user ${link.user_id}:`, err);
       });
     }
-  }, 2000); // 2 second debounce
+  }, 2000); 
 
   syncDebounceMap.set(projectId, timer);
 }
 
-// ---------- Polling Fallback ----------
-
 export async function syncAllSheetsBackground() {
-  console.log("Starting background sheet polling...");
   const links = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links`;
-  
   for (const link of links) {
     try {
-      // For polling, we don't have a 'row' number like webhooks, 
-      // so we would normally fetch the whole sheet and compare.
-      // For now, we'll just trigger an App -> Sheet sync to ensure the sheet is fresh,
-      // and rely on webhooks for the Sheet -> App direction primarily.
-      // A full bidirectional poll would fetch the sheet, but that's heavy.
       await syncProjectToSheet(link.user_id, link.project_id, link.spreadsheet_id, link.tab_name);
     } catch (err) {
       console.error(`Background sync failed for link ${link.id}:`, err);
@@ -661,6 +580,5 @@ export async function syncAllSheetsBackground() {
 }
 
 export function startSheetSyncInterval() {
-  // Poll every 30 minutes
   setInterval(syncAllSheetsBackground, 30 * 60 * 1000);
 }

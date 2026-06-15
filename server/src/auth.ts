@@ -230,7 +230,7 @@ authRouter.get("/google/status", requireAuth, async (req, res) => {
   const u = (req as AuthedRequest).user;
   const [token] = await sql`SELECT scope, refresh_token FROM google_tokens WHERE user_id = ${u.id}`;
   const hasSheets = token?.scope?.includes("spreadsheets") ?? false;
-  res.json({ connected: !!token, hasSheets, hasRefreshToken: !!token?.refresh_token });
+  res.json({ connected: !!token, hasSheets, hasRefreshToken: !!token?.refresh_token, appUrl: config.appUrl });
 });
 
 authRouter.get("/me", requireAuth, (req, res) => {

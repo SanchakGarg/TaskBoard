@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { sql, logActivity, type Task, type User } from "./db";
+import { sql, logActivity, type Task, type User, type ProjectSheetLink } from "./db";
 import { requireAuth, type AuthedRequest } from "./auth";
 import { sendTaskAssigned, sendWorkspaceInvite, sendTestEmail, sendPendingInvite } from "./mailer";
-
-import { createProjectSheet, createWorkspaceSheet, syncProjectToSheet, syncProjectToAllLinkedSheets, addStatusValidation } from "./sheets";
+import { createProjectSheet, createWorkspaceSheet, syncProjectToSheet, syncProjectToAllLinkedSheets, addStatusValidation, getGoogleAuth } from "./sheets";
+import { google } from "googleapis";
 
 export const apiRouter = Router();
 apiRouter.use(requireAuth);
@@ -183,13 +183,22 @@ const assigneesFor = async (taskIds: string[]): Promise<Map<string, Assignee[]>>
   return map;
 };
 
-const setAssignees = async (taskId: string, workspaceId: string, userIds: unknown) => {
+const setAssignees = async (taskId: string, projectId: string | null, workspaceId: string | null, userIds: unknown) => {
   if (!Array.isArray(userIds)) return;
   await sql`DELETE FROM task_assignees WHERE task_id = ${taskId}`;
   for (const uid of userIds.slice(0, 20)) {
     if (typeof uid !== "string") continue;
-    if (await getRole(uid, workspaceId) === null) continue;
-    await sql`INSERT INTO task_assignees (task_id, user_id) VALUES (${taskId}, ${uid}) ON CONFLICT DO NOTHING`;
+    let hasAccess = false;
+    if (workspaceId && (await getRole(uid, workspaceId)) !== null) {
+      hasAccess = true;
+    } else if (projectId) {
+      // Check project-level membership (e.g. for guests)
+      const [pm] = await sql`SELECT role FROM project_members WHERE project_id = ${projectId} AND user_id = ${uid}`;
+      if (pm) hasAccess = true;
+    }
+    if (hasAccess) {
+      await sql`INSERT INTO task_assignees (task_id, user_id) VALUES (${taskId}, ${uid}) ON CONFLICT DO NOTHING`;
+    }
   }
 };
 
@@ -617,7 +626,7 @@ apiRouter.delete("/projects/:id/sheet-link", async (req, res) => {
   if (link) {
     try {
       const auth = await getGoogleAuth(u.id);
-      const drive = google.drive({ version: "v3", auth });
+      const drive = google.drive({ version: "v3", auth: auth as any });
       await drive.files.delete({ fileId: link.spreadsheet_id });
     } catch (err) {
       console.error("Failed to delete drive file during unlink:", err);
@@ -634,9 +643,8 @@ apiRouter.get("/workspaces/:id/sheet-links", async (req, res) => {
   const u = user(req);
   if (!u) return forbidden(res);
   const rows = await sql`
-    SELECT psl.* FROM project_sheet_links psl
-    JOIN projects p ON p.id = psl.project_id
-    WHERE p.workspace_id = ${workspaceId} AND psl.user_id = ${u.id}
+    SELECT * FROM project_sheet_links
+    WHERE linked_at_workspace_id = ${workspaceId} AND user_id = ${u.id}
   `;
   res.json(rows);
 });
@@ -667,14 +675,15 @@ apiRouter.post("/workspaces/:id/sheet-links", async (req, res) => {
     for (const linkInfo of sheetInfo.links) {
       await sql`
         INSERT INTO project_sheet_links 
-          (user_id, project_id, spreadsheet_id, spreadsheet_url, sheet_id, tab_name, layout_mode, sync_token)
+          (user_id, project_id, spreadsheet_id, spreadsheet_url, sheet_id, tab_name, layout_mode, sync_token, linked_at_workspace_id)
         VALUES 
-          (${u.id}, ${linkInfo.projectId}, ${sheetInfo.spreadsheetId}, ${sheetInfo.spreadsheetUrl}, ${linkInfo.sheetId}, ${linkInfo.tabName}, ${layoutMode}, ${syncToken})
+          (${u.id}, ${linkInfo.projectId}, ${sheetInfo.spreadsheetId}, ${sheetInfo.spreadsheetUrl}, ${linkInfo.sheetId}, ${linkInfo.tabName}, ${layoutMode}, ${syncToken}, ${workspaceId})
         ON CONFLICT (user_id, project_id, spreadsheet_id, tab_name) DO UPDATE SET
           spreadsheet_url = EXCLUDED.spreadsheet_url,
           sheet_id = EXCLUDED.sheet_id,
           layout_mode = EXCLUDED.layout_mode,
-          sync_token = EXCLUDED.sync_token
+          sync_token = EXCLUDED.sync_token,
+          linked_at_workspace_id = EXCLUDED.linked_at_workspace_id
       `;
       
       await addStatusValidation(u.id, linkInfo.projectId, sheetInfo.spreadsheetId, linkInfo.sheetId);
@@ -694,15 +703,14 @@ apiRouter.delete("/workspaces/:id/sheet-links", async (req, res) => {
   if (!u) return forbidden(res);
 
   const links = await sql<ProjectSheetLink[]>`
-    SELECT psl.* FROM project_sheet_links psl
-    JOIN projects p ON p.id = psl.project_id
-    WHERE p.workspace_id = ${workspaceId} AND psl.user_id = ${u.id}
+    SELECT * FROM project_sheet_links
+    WHERE linked_at_workspace_id = ${workspaceId} AND user_id = ${u.id}
   `;
 
   if (links.length > 0) {
     try {
       const auth = await getGoogleAuth(u.id);
-      const drive = google.drive({ version: "v3", auth });
+      const drive = google.drive({ version: "v3", auth: auth as any });
       const uniqueSheetIds = [...new Set(links.map(l => l.spreadsheet_id))];
 
       for (const fileId of uniqueSheetIds) {
@@ -836,7 +844,7 @@ apiRouter.post("/tasks", async (req, res) => {
   `;
 
   if (workspaceId !== null && task && u) {
-    await setAssignees(task.id, workspaceId, assigneeIds);
+    await setAssignees(task.id, projectId, workspaceId, assigneeIds);
     const notify = await emailsOf(assigneeIds);
     if (notify.length && (await areNotificationsEnabled(workspaceId)))
       sendTaskAssigned({
@@ -898,7 +906,7 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
   if (existing.workspace_id !== null && Array.isArray(req.body?.assignees) && atLeast(role, "write") && u) {
     const before = new Set(((await assigneesFor([existing.id])).get(existing.id) ?? []).map((a) => a.id));
     const after = await memberIdsOnly(existing.workspace_id, req.body.assignees);
-    await setAssignees(existing.id, existing.workspace_id, after);
+    await setAssignees(existing.id, existing.project_id, existing.workspace_id, after);
     const added = after.filter((id) => !before.has(id));
     const notify = await emailsOf(added);
     if (notify.length && (await areNotificationsEnabled(existing.workspace_id)))

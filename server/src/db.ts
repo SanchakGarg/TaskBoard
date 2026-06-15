@@ -206,6 +206,7 @@ export const initDb = async () => {
       last_sync_app_to_sheet TIMESTAMP,
       last_sync_sheet_to_app TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      linked_at_workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
       UNIQUE (user_id, project_id, spreadsheet_id, tab_name)
     );
   `;
@@ -276,6 +277,7 @@ export interface ProjectSheetLink {
   last_sync_app_to_sheet: string | null;
   last_sync_sheet_to_app: string | null;
   created_at: string;
+  linked_at_workspace_id: string | null;
 }
 
 export const upsertUser = async (u: {

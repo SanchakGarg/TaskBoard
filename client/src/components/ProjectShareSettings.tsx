@@ -28,7 +28,7 @@ export function ProjectShareSettings({ project, role, onClose, onSaved }: Projec
   const [inviteError, setInviteError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean; appUrl?: string } | null>(null);
   const [sheetLink, setSheetLink] = useState<any>(null);
   const [linking, setLinking] = useState(false);
 
@@ -127,7 +127,7 @@ function onEdit(e) {
     row: row
   };
   
-  var url = "${window.location.origin}/api/sheets/webhook/${sheetLink?.sync_token}";
+  var url = "${googleStatus?.appUrl || window.location.origin}/api/sheets/webhook/${sheetLink?.sync_token}";
   
   var options = {
     method: "post",
