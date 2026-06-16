@@ -594,7 +594,9 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   try {
     // If moving to a folder, verify it exists and belongs to the correct workspace
     if (updates.folder_id) {
+      console.log(`[move project] checking folder_id=${updates.folder_id} workspace=${updates.workspace_id ?? p.workspace_id}`);
       const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${updates.folder_id}`;
+      console.log(`[move project] folder lookup result:`, folder ?? "NOT FOUND");
       if (!folder) return bad(res, "target folder does not exist");
       const targetWs = updates.workspace_id || p.workspace_id;
       if (folder.workspace_id !== targetWs) return bad(res, "folder does not belong to target workspace");

@@ -173,8 +173,11 @@ export function App() {
   };
 
   const moveProject = async (projectId: string, workspaceId: string, folderId: string | null, position: number) => {
-    await api.patch(`/projects/${projectId}`, { workspaceId, folderId, position });
-    await loadAll();
+    try {
+      await api.patch(`/projects/${projectId}`, { workspaceId, folderId, position });
+    } finally {
+      await loadAll();
+    }
   };
 
   const moveFolder = async (folderId: string, parentId: string | null, position: number) => {
