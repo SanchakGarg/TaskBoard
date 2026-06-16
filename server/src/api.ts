@@ -594,12 +594,10 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   try {
     // If moving to a folder, verify it exists and belongs to the correct workspace
     if (updates.folder_id) {
-      console.log(`[move project] checking folder_id=${updates.folder_id} workspace=${updates.workspace_id ?? p.workspace_id}`);
       const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${updates.folder_id}`;
-      console.log(`[move project] folder lookup result:`, folder ?? "NOT FOUND");
-      if (!folder) return bad(res, `target folder does not exist (looked up: ${updates.folder_id})`);
+      if (!folder) return bad(res, "target folder does not exist");
       const targetWs = updates.workspace_id || p.workspace_id;
-      if (folder.workspace_id !== targetWs) return bad(res, `folder workspace mismatch: folder.ws=${folder.workspace_id} target.ws=${targetWs}`);
+      if (folder.workspace_id !== targetWs) return bad(res, "folder does not belong to target workspace");
     }
 
     const [row] = await sql`
@@ -611,7 +609,7 @@ apiRouter.patch("/projects/:id", async (req, res) => {
     res.json(row);
   } catch (err: any) {
     console.error("Failed to update project:", err);
-    if (err?.code === "23503") return bad(res, `FK violation updating project: ${err.message}`);
+    if (err?.code === "23503") return bad(res, "target folder does not exist");
     res.status(500).json({ error: err.message || "Failed to update project" });
   }
 });
