@@ -37,8 +37,12 @@ export function ProjectShareSettings({ project, role, onClose, onSaved }: Projec
 
   const load = useCallback(() => {
     api.get<ProjectMember[]>(`/projects/${project.id}/members`).then(setProjectMembers);
-    api.get<any>(`/auth/google/status`).then(setGoogleStatus);
-    api.get<any>(`/projects/${project.id}/sheet-link`).then(setSheetLink);
+    api.get<any>(`/auth/google/status`).then((status) => {
+      setGoogleStatus(status);
+      if (status?.sheetsSyncEnabled !== false) {
+        api.get<any>(`/projects/${project.id}/sheet-link`).then(setSheetLink);
+      }
+    });
   }, [project.id]);
 
   useEffect(load, [load]);

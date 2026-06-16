@@ -48,8 +48,12 @@ export function WorkspaceShareSettings({ workspace, onClose }: WorkspaceShareSet
       setProjects(filtered);
       setSelectedProjectIds(filtered.map((p) => p.id));
     });
-    api.get<any>(`/auth/google/status`).then(setGoogleStatus);
-    api.get<any[]>(`/workspaces/${workspace.id}/sheet-links`).then(setWorkspaceLinks);
+    api.get<any>(`/auth/google/status`).then((status) => {
+      setGoogleStatus(status);
+      if (status?.sheetsSyncEnabled !== false) {
+        api.get<any[]>(`/workspaces/${workspace.id}/sheet-links`).then(setWorkspaceLinks);
+      }
+    });
   }, [workspace.id]);
 
   useEffect(load, [load]);

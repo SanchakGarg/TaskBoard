@@ -71,7 +71,9 @@ app.post("/api/cron/sweep", async (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicApiRouter);
-app.use("/api/sheets/webhook", sheetsWebhookRouter);
+if (config.sheetsSyncEnabled) {
+  app.use("/api/sheets/webhook", sheetsWebhookRouter);
+}
 app.use("/api", apiRouter);
 
 // serve built frontend in production
@@ -104,5 +106,5 @@ app.use(
 await initDb();
 await initAuth();
 startDeadlineWatcher();
-startSheetSyncInterval();
+if (config.sheetsSyncEnabled) startSheetSyncInterval();
 app.listen(config.port, () => console.log(`taskboard listening on :${config.port}`));
