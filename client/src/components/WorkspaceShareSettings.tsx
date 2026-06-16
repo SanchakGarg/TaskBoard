@@ -190,106 +190,108 @@ export function WorkspaceShareSettings({ workspace, onClose }: WorkspaceShareSet
           </Card>
         </section>
 
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <FileSpreadsheet size={18} className="text-ink-soft" />
-            <h3 className="font-hand text-lg font-bold">Google Sheets Sync</h3>
-          </div>
+        {googleStatus?.sheetsSyncEnabled !== false && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <FileSpreadsheet size={18} className="text-ink-soft" />
+              <h3 className="font-hand text-lg font-bold">Google Sheets Sync</h3>
+            </div>
 
-          {!googleStatus?.hasSheets ? (
-            <Card className="flex flex-col items-center border-dashed border-ink/30 bg-paper-dark/10 p-6 text-center">
-              <p className="mb-4 text-sm text-ink-soft">
-                Connect your Google account to enable bidirectional sync with Sheets for this workspace.
-              </p>
-              <Button size="sm" onClick={connectGoogle}>
-                <ExternalLink size={14} className="mr-1.5" />
-                {googleStatus?.connected ? "Reconnect Google" : "Connect Google Account"}
-              </Button>
-            </Card>
-          ) : workspaceLinks.length > 0 ? (
-            <Card className="border-pen-blue/40 bg-pen-blue/5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-bold text-ink">Linked Workspace Sheet</p>
-                  <p className="text-xs text-ink-soft">
-                    {workspaceLinks.length} projects synced ({workspaceLinks[0].layout_mode} layout)
-                  </p>
-                </div>
-                <Badge tone="green">Sync Active</Badge>
-              </div>
-              <div className="flex flex-col gap-3">
-                <div className="min-w-0 flex-1 truncate rounded border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
-                  {sheetUrl}
-                </div>
-                <div className="flex gap-2">
-                  <Button className="flex-1" size="sm" variant="secondary" onClick={() => window.open(sheetUrl, "_blank")}>
-                    <ExternalLink size={14} className="mr-1.5" /> Open Spreadsheet
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={unlinkWorkspace} className="!text-pen-red">
-                    <Trash2 size={14} className="mr-1.5" /> Unlink & Delete File
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ) : (
-            <Card className="flex flex-col gap-4">
-              <div>
-                <p className="text-sm font-bold">Link projects to a new sheet</p>
-                <p className="text-xs text-ink-soft">Select the projects you want to include in the spreadsheet.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
-                {projects.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg border-2 border-ink/5 bg-paper-dark/10 cursor-pointer hover:border-pen-blue/30 transition-colors">
-                    <Checkbox
-                      checked={selectedProjectIds.includes(p.id)}
-                      onChange={() => toggleProject(p.id)}
-                    />
-                    <span className="text-sm truncate">{p.name}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-3 border-t border-ink/10 pt-4">
-                <p className="text-xs font-bold text-ink-soft uppercase tracking-wider">Layout Mode</p>
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="layout"
-                      checked={layoutMode === "single"}
-                      onChange={() => setLayoutMode("single")}
-                      className="accent-pen-blue w-4 h-4"
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold">Separate Tabs</span>
-                      <span className="text-[10px] text-ink-soft">Each project gets its own tab</span>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="layout"
-                      checked={layoutMode === "stacked"}
-                      onChange={() => setLayoutMode("stacked")}
-                      className="accent-pen-blue w-4 h-4"
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold">Stacked</span>
-                      <span className="text-[10px] text-ink-soft">All projects in one single list</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button size="sm" variant="secondary" onClick={linkWorkspace} disabled={linking}>
-                  {linking ? "Linking..." : "Create Spreadsheet"}
+            {!googleStatus?.hasSheets ? (
+              <Card className="flex flex-col items-center border-dashed border-ink/30 bg-paper-dark/10 p-6 text-center">
+                <p className="mb-4 text-sm text-ink-soft">
+                  Connect your Google account to enable bidirectional sync with Sheets for this workspace.
+                </p>
+                <Button size="sm" onClick={connectGoogle}>
+                  <ExternalLink size={14} className="mr-1.5" />
+                  {googleStatus?.connected ? "Reconnect Google" : "Connect Google Account"}
                 </Button>
-              </div>
-            </Card>
-          )}
-        </section>
+              </Card>
+            ) : workspaceLinks.length > 0 ? (
+              <Card className="border-pen-blue/40 bg-pen-blue/5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-ink">Linked Workspace Sheet</p>
+                    <p className="text-xs text-ink-soft">
+                      {workspaceLinks.length} projects synced ({workspaceLinks[0].layout_mode} layout)
+                    </p>
+                  </div>
+                  <Badge tone="green">Sync Active</Badge>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="min-w-0 flex-1 truncate rounded border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
+                    {sheetUrl}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" size="sm" variant="secondary" onClick={() => window.open(sheetUrl, "_blank")}>
+                      <ExternalLink size={14} className="mr-1.5" /> Open Spreadsheet
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={unlinkWorkspace} className="!text-pen-red">
+                      <Trash2 size={14} className="mr-1.5" /> Unlink & Delete File
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <Card className="flex flex-col gap-4">
+                <div>
+                  <p className="text-sm font-bold">Link projects to a new sheet</p>
+                  <p className="text-xs text-ink-soft">Select the projects you want to include in the spreadsheet.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
+                  {projects.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg border-2 border-ink/5 bg-paper-dark/10 cursor-pointer hover:border-pen-blue/30 transition-colors">
+                      <Checkbox
+                        checked={selectedProjectIds.includes(p.id)}
+                        onChange={() => toggleProject(p.id)}
+                      />
+                      <span className="text-sm truncate">{p.name}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-ink/10 pt-4">
+                  <p className="text-xs font-bold text-ink-soft uppercase tracking-wider">Layout Mode</p>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="layout"
+                        checked={layoutMode === "single"}
+                        onChange={() => setLayoutMode("single")}
+                        className="accent-pen-blue w-4 h-4"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold">Separate Tabs</span>
+                        <span className="text-[10px] text-ink-soft">Each project gets its own tab</span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="layout"
+                        checked={layoutMode === "stacked"}
+                        onChange={() => setLayoutMode("stacked")}
+                        className="accent-pen-blue w-4 h-4"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold">Stacked</span>
+                        <span className="text-[10px] text-ink-soft">All projects in one single list</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button size="sm" variant="secondary" onClick={linkWorkspace} disabled={linking}>
+                    {linking ? "Linking..." : "Create Spreadsheet"}
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </section>
+        )}
       </div>
     </Modal>
   );

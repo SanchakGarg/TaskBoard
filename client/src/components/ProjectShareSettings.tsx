@@ -267,82 +267,84 @@ function onEdit(e) {
           </Card>
         </section>
 
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <FileSpreadsheet size={18} className="text-ink-soft" />
-            <h3 className="font-hand text-lg font-bold">Google Sheets Sync</h3>
-          </div>
-          {!googleStatus?.hasSheets ? (
-            <Card className="flex flex-col items-center border-dashed border-ink/30 bg-paper-dark/10 p-6 text-center">
-              <p className="mb-4 text-sm text-ink-soft">
-                Connect your Google account to enable bidirectional sync with Sheets.
-              </p>
-              <Button size="sm" onClick={connectGoogle}>
-                <ExternalLink size={14} className="mr-1.5" />
-                {googleStatus?.connected ? "Reconnect Google" : "Connect Google Account"}
-              </Button>
-            </Card>
-          ) : sheetLink ? (
-            <Card className="border-pen-blue/40 bg-pen-blue/5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-bold text-ink">Linked Spreadsheet</p>
-                  <p className="text-xs text-ink-soft italic">Tab: {sheetLink.tab_name}</p>
+        {(googleStatus?.sheetsSyncEnabled !== false) && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <FileSpreadsheet size={18} className="text-ink-soft" />
+              <h3 className="font-hand text-lg font-bold">Google Sheets Sync</h3>
+            </div>
+            {!googleStatus?.hasSheets ? (
+              <Card className="flex flex-col items-center border-dashed border-ink/30 bg-paper-dark/10 p-6 text-center">
+                <p className="mb-4 text-sm text-ink-soft">
+                  Connect your Google account to enable bidirectional sync with Sheets.
+                </p>
+                <Button size="sm" onClick={connectGoogle}>
+                  <ExternalLink size={14} className="mr-1.5" />
+                  {googleStatus?.connected ? "Reconnect Google" : "Connect Google Account"}
+                </Button>
+              </Card>
+            ) : sheetLink ? (
+              <Card className="border-pen-blue/40 bg-pen-blue/5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-ink">Linked Spreadsheet</p>
+                    <p className="text-xs text-ink-soft italic">Tab: {sheetLink.tab_name}</p>
+                  </div>
+                  <Badge tone="green">Sync Active</Badge>
                 </div>
-                <Badge tone="green">Sync Active</Badge>
-              </div>
-              
-              <div className="flex flex-col gap-3">
-                <div className="min-w-0 flex-1 truncate rounded-lg border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
-                  {sheetLink.spreadsheet_url}
-                </div>
-                <div className="flex gap-2">
-                  <Button className="flex-1" size="sm" variant="secondary" onClick={() => window.open(sheetLink.spreadsheet_url, "_blank")}>
-                    <ExternalLink size={14} className="mr-1.5" /> Open Sheet
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={unlinkSheet} className="!text-pen-red">
-                    <Trash2 size={14} className="mr-1.5" /> Unlink & Delete
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-4 border-t border-ink/10 pt-3">
-                <button
-                  onClick={() => setShowScript(!showScript)}
-                  className="text-[10px] font-bold uppercase tracking-wider text-ink-soft hover:text-ink flex items-center gap-1"
-                >
-                  {showScript ? "▼" : "▶"} Bidirectional Sync Setup (Optional)
-                </button>
-                {showScript && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    <p className="text-[10px] text-ink-soft leading-relaxed italic">
-                      To enable sync from Sheet back to this App: Open your spreadsheet, go to **Extensions &gt; Apps Script**, paste the code below, and **Save**. Then click the clock icon (Triggers) and add a new trigger for the `onEdit` function with event type "On edit".
-                    </p>
-                    <pre className="max-h-40 overflow-auto rounded-lg border-2 border-ink/5 bg-ink/5 p-3 font-mono text-[10px] text-ink leading-normal">
-                      {appsScript}
-                    </pre>
-                    <Button size="xs" variant="secondary" className="self-end" onClick={() => {
-                      navigator.clipboard.writeText(appsScript);
-                      showToast("Apps Script copied to clipboard.", "success");
-                    }}>
-                      <Copy size={12} className="mr-1.5" /> Copy Script
+                
+                <div className="flex flex-col gap-3">
+                  <div className="min-w-0 flex-1 truncate rounded-lg border-2 border-ink/10 bg-paper px-3 py-2 font-mono text-xs text-ink-soft">
+                    {sheetLink.spreadsheet_url}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" size="sm" variant="secondary" onClick={() => window.open(sheetLink.spreadsheet_url, "_blank")}>
+                      <ExternalLink size={14} className="mr-1.5" /> Open Sheet
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={unlinkSheet} className="!text-pen-red">
+                      <Trash2 size={14} className="mr-1.5" /> Unlink & Delete
                     </Button>
                   </div>
-                )}
-              </div>
-            </Card>
-          ) : (
-            <Card className="flex items-center justify-between border-dashed border-ink/30 bg-paper-dark/5 p-4">
-              <div className="flex flex-col">
-                <p className="text-sm font-bold">No sheet linked yet</p>
-                <p className="text-xs text-ink-soft italic">Create a new spreadsheet for this project.</p>
-              </div>
-              <Button size="sm" variant="secondary" onClick={linkSheet} disabled={linking}>
-                {linking ? "Linking..." : "Link sheet"}
-              </Button>
-            </Card>
-          )}
-        </section>
+                </div>
+
+                <div className="mt-4 border-t border-ink/10 pt-3">
+                  <button
+                    onClick={() => setShowScript(!showScript)}
+                    className="text-[10px] font-bold uppercase tracking-wider text-ink-soft hover:text-ink flex items-center gap-1"
+                  >
+                    {showScript ? "▼" : "▶"} Bidirectional Sync Setup (Optional)
+                  </button>
+                  {showScript && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <p className="text-[10px] text-ink-soft leading-relaxed italic">
+                        To enable sync from Sheet back to this App: Open your spreadsheet, go to **Extensions &gt; Apps Script**, paste the code below, and **Save**. Then click the clock icon (Triggers) and add a new trigger for the `onEdit` function with event type "On edit".
+                      </p>
+                      <pre className="max-h-40 overflow-auto rounded-lg border-2 border-ink/5 bg-ink/5 p-3 font-mono text-[10px] text-ink leading-normal">
+                        {appsScript}
+                      </pre>
+                      <Button size="xs" variant="secondary" className="self-end" onClick={() => {
+                        navigator.clipboard.writeText(appsScript);
+                        showToast("Apps Script copied to clipboard.", "success");
+                      }}>
+                        <Copy size={12} className="mr-1.5" /> Copy Script
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ) : (
+              <Card className="flex items-center justify-between border-dashed border-ink/30 bg-paper-dark/5 p-4">
+                <div className="flex flex-col">
+                  <p className="text-sm font-bold">No sheet linked yet</p>
+                  <p className="text-xs text-ink-soft italic">Create a new spreadsheet for this project.</p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={linkSheet} disabled={linking}>
+                  {linking ? "Linking..." : "Link sheet"}
+                </Button>
+              </Card>
+            )}
+          </section>
+        )}
       </div>
     </Modal>
   );

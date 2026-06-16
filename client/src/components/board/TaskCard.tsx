@@ -1,4 +1,5 @@
-import { Clock, Flag } from "lucide-react";
+import { useState } from "react";
+import { Clock, Flag, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge, priorityTone } from "../ui";
 import { formatIST, parseTags, type TagDef, type Task } from "../../lib/types";
 import { AvatarStack, TagBadge } from "./pickers";
@@ -20,6 +21,7 @@ export function TaskCard({
   onDoubleClick,
   onContextMenu,
 }: TaskCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const taskTags = parseTags(task.tags);
   const d = task.due_date ? new Date(task.due_date) : null;
   const hasTime = d && (d.getHours() !== 0 || d.getMinutes() !== 0);
@@ -32,6 +34,25 @@ export function TaskCard({
       className={`anim-lift-card cursor-pointer select-none rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card ${isDragging ? "dragging" : ""} ${task.completed_at ? "opacity-60" : ""}`}
     >
       <p className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{task.title}</p>
+
+      {task.description && (
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
+          className="group/desc relative mt-1"
+        >
+          <p className={`text-xs text-ink-soft whitespace-pre-wrap ${expanded ? "" : "line-clamp-3"}`}>
+            {task.description}
+          </p>
+          {task.description.split("\n").length > 3 || task.description.length > 100 ? (
+            <div className="absolute -right-1 -top-1 opacity-0 group-hover/desc:opacity-100 transition-opacity">
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {(task.progress ?? 0) > 0 && (
         <div className="mt-2 flex items-center gap-2">

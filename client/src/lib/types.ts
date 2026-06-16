@@ -22,6 +22,14 @@ export interface Workspace {
   notifications_enabled: number;
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  workspace_id: string;
+  parent_id: string | null;
+  position: number;
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -53,6 +61,7 @@ export interface Project {
   name: string;
   description: string;
   workspace_id: string;
+  folder_id: string | null;
   view_type: "kanban" | "list";
   position: number;
   created_at: string;

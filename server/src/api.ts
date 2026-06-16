@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { sql, logActivity, type Task, type User, type ProjectSheetLink } from "./db";
 import { requireAuth, type AuthedRequest } from "./auth";
+import { config } from "./config";
 import { sendTaskAssigned, sendWorkspaceInvite, sendTestEmail, sendPendingInvite } from "./mailer";
 import { createProjectSheet, createWorkspaceSheet, syncProjectToSheet, syncProjectToAllLinkedSheets, addStatusValidation, getGoogleAuth } from "./sheets";
 import { google } from "googleapis";
@@ -147,13 +148,21 @@ const TAG_PALETTE = [
 ];
 
 const registerTags = async (workspaceId: string, names: string[]) => {
+  if (!names.length) return;
   for (const name of names) {
-    const [exists] = await sql`SELECT 1 FROM tags WHERE workspace_id = ${workspaceId} AND name = ${name}`;
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+    // Check if tag already exists in this workspace
+    const [exists] = await sql`SELECT 1 FROM tags WHERE workspace_id = ${workspaceId} AND name = ${trimmed}`;
     if (!exists) {
+      // Get current tag count for color selection
       const [countRow] = await sql<{ c: string }[]>`SELECT COUNT(*)::int AS c FROM tags WHERE workspace_id = ${workspaceId}`;
       const c = Number(countRow?.c ?? 0);
-      await sql`INSERT INTO tags (workspace_id, name, color) VALUES (${workspaceId}, ${name}, ${TAG_PALETTE[c % TAG_PALETTE.length]!})
-        ON CONFLICT (workspace_id, name) DO NOTHING`;
+      await sql`
+        INSERT INTO tags (workspace_id, name, color) 
+        VALUES (${workspaceId}, ${trimmed}, ${TAG_PALETTE[c % TAG_PALETTE.length]!})
+        ON CONFLICT (workspace_id, name) DO NOTHING
+      `;
     }
   }
 };
@@ -290,6 +299,69 @@ apiRouter.delete("/workspaces/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- workspace folders ----------
+
+apiRouter.get("/workspaces/:id/folders", async (req, res) => {
+  const id = req.params.id;
+  const u = user(req);
+  if (!u || !atLeast(await getRole(u.id, id), "read")) return notFound(res);
+  const rows = await sql`SELECT * FROM workspace_folders WHERE workspace_id = ${id} ORDER BY position, created_at`;
+  res.json(rows);
+});
+
+apiRouter.post("/workspaces/:id/folders", async (req, res) => {
+  const id = req.params.id;
+  const u = user(req);
+  if (!u || await getRole(u.id, id) !== "admin") return forbidden(res);
+  const name = str(req.body?.name, 100)?.trim();
+  if (!name) return bad(res, "name required");
+  const parentId = str(req.body?.parentId);
+  
+  const [nextRow] = await sql<{ p: number }[]>`
+    SELECT COALESCE(MAX(position) + 1, 0) AS p 
+    FROM workspace_folders 
+    WHERE workspace_id = ${id} AND (parent_id = ${parentId ?? null} OR (parent_id IS NULL AND ${parentId ?? null} IS NULL))
+  `;
+  
+  const [folder] = await sql`
+    INSERT INTO workspace_folders (name, workspace_id, parent_id, position) 
+    VALUES (${name}, ${id}, ${parentId ?? null}, ${nextRow?.p ?? 0}) 
+    RETURNING *
+  `;
+  res.status(201).json(folder);
+});
+
+apiRouter.patch("/folders/:id", async (req, res) => {
+  const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${req.params.id}`;
+  if (!folder) return notFound(res);
+  const u = user(req);
+  if (!u || await getRole(u.id, folder.workspace_id) !== "admin") return forbidden(res);
+  
+  const name = str(req.body?.name, 100)?.trim();
+  const parentId = req.body?.parentId === undefined ? undefined : str(req.body.parentId);
+  const position = typeof req.body?.position === "number" ? req.body.position : undefined;
+
+  const [row] = await sql`
+    UPDATE workspace_folders 
+    SET 
+      name = COALESCE(${name ?? null}, name),
+      parent_id = ${parentId === undefined ? sql`parent_id` : (parentId ?? null)},
+      position = COALESCE(${position ?? null}, position)
+    WHERE id = ${req.params.id} 
+    RETURNING *
+  `;
+  res.json(row);
+});
+
+apiRouter.delete("/folders/:id", async (req, res) => {
+  const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${req.params.id}`;
+  if (!folder) return notFound(res);
+  const u = user(req);
+  if (!u || await getRole(u.id, folder.workspace_id) !== "admin") return forbidden(res);
+  await sql`DELETE FROM workspace_folders WHERE id = ${req.params.id}`;
+  res.json({ ok: true });
+});
+
 // ---------- workspace members ----------
 
 apiRouter.get("/workspaces/:id/members", async (req, res) => {
@@ -419,13 +491,14 @@ apiRouter.post("/projects", async (req, res) => {
   const name = str(req.body?.name, 200)?.trim();
   if (!name) return bad(res, "name required");
   const workspaceId = req.body?.workspaceId;
+  const folderId = str(req.body?.folderId);
   const u = user(req);
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
   const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
   const [project] = await sql<{ id: string }[]>`
-    INSERT INTO projects (name, description, owner_id, workspace_id, view_type, position)
-    VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${viewType}, ${nextRow?.p ?? 0})
+    INSERT INTO projects (name, description, owner_id, workspace_id, folder_id, view_type, position)
+    VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId ?? null}, ${viewType}, ${nextRow?.p ?? 0})
     RETURNING *
   `;
   const defaults: [string, number][] =
@@ -448,8 +521,8 @@ apiRouter.patch("/projects/reorder", async (req, res) => {
   if (!u) return forbidden(res);
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i] as string;
-    const ws = await projectWorkspace(id);
-    if (ws !== null && atLeast(await getRole(u.id, ws), "write")) {
+    const [p] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM projects WHERE id = ${id}`;
+    if (p && atLeast(await getRole(u.id, p.workspace_id), "write")) {
       await sql`UPDATE projects SET position = ${i} WHERE id = ${id}`;
     }
   }
@@ -458,13 +531,26 @@ apiRouter.patch("/projects/reorder", async (req, res) => {
 
 apiRouter.patch("/projects/:id", async (req, res) => {
   const id = req.params.id;
-  const ws = await projectWorkspace(id);
-  if (ws === null) return notFound(res);
+  const [p] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM projects WHERE id = ${id}`;
+  if (!p) return notFound(res);
   const u = user(req);
-  if (!u || await getRole(u.id, ws) !== "admin") return forbidden(res);
+  if (!u || await getRole(u.id, p.workspace_id) !== "admin") return forbidden(res);
+  
   const name = str(req.body?.name, 200)?.trim();
-  if (!name) return bad(res, "name required");
-  const [row] = await sql`UPDATE projects SET name = ${name} WHERE id = ${id} RETURNING *`;
+  const workspaceId = str(req.body?.workspaceId);
+  const folderId = req.body?.folderId === undefined ? undefined : str(req.body.folderId);
+  const position = typeof req.body?.position === "number" ? req.body.position : undefined;
+
+  const [row] = await sql`
+    UPDATE projects 
+    SET 
+      name = COALESCE(${name ?? null}, name),
+      workspace_id = COALESCE(${workspaceId ?? null}, workspace_id),
+      folder_id = ${folderId === undefined ? sql`folder_id` : (folderId ?? null)},
+      position = COALESCE(${position ?? null}, position)
+    WHERE id = ${id} 
+    RETURNING *
+  `;
   res.json(row);
 });
 
@@ -579,66 +665,69 @@ apiRouter.put("/projects/:id/managers", async (req, res) => {
 
 // ---------- project sheets ----------
 
-apiRouter.get("/projects/:id/sheet-link", async (req, res) => {
-  const projectId = req.params.id;
-  const u = user(req);
-  if (!u) return forbidden(res);
-  const [link] = await sql`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
-  res.json(link || null);
-});
+if (config.sheetsSyncEnabled) {
+  apiRouter.get("/projects/:id/sheet-link", async (req, res) => {
+    const projectId = req.params.id;
+    const u = user(req);
+    if (!u) return forbidden(res);
+    const [link] = await sql`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+    res.json(link || null);
+  });
 
-apiRouter.post("/projects/:id/sheet-link", async (req, res) => {
-  const projectId = req.params.id;
-  const u = user(req);
-  if (!u) return forbidden(res);
-  
-  const [project] = await sql<{ name: string }[]>`SELECT name FROM projects WHERE id = ${projectId}`;
-  if (!project) return notFound(res);
+  apiRouter.post("/projects/:id/sheet-link", async (req, res) => {
+    const projectId = req.params.id;
+    const u = user(req);
+    if (!u) return forbidden(res);
+    
+    const [project] = await sql<{ name: string }[]>`SELECT name FROM projects WHERE id = ${projectId}`;
+    if (!project) return notFound(res);
 
-  try {
-    const sheetInfo = await createProjectSheet(u.id, project.name, projectId);
-    const syncToken = Math.random().toString(36).substring(2);
-    
-    const [link] = await sql<any[]>`
-      INSERT INTO project_sheet_links 
-        (user_id, project_id, spreadsheet_id, spreadsheet_url, sheet_id, tab_name, sync_token)
-      VALUES 
-        (${u.id}, ${projectId}, ${sheetInfo.spreadsheetId}, ${sheetInfo.spreadsheetUrl}, ${sheetInfo.sheetId}, ${sheetInfo.tabName}, ${syncToken})
-      RETURNING *
-    `;
-    
-    await addStatusValidation(u.id, projectId, link.spreadsheet_id, link.sheet_id);
-    await syncProjectToSheet(u.id, projectId, link.spreadsheet_id, link.tab_name);
-    
-    res.status(201).json(link);
-  } catch (err: any) {
-    console.error("Failed to link sheet:", err);
-    res.status(500).json({ error: err.message || "Failed to link sheet" });
-  }
-});
-
-apiRouter.delete("/projects/:id/sheet-link", async (req, res) => {
-  const projectId = req.params.id;
-  const u = user(req);
-  if (!u) return forbidden(res);
-  
-  const [link] = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
-  if (link) {
     try {
-      const auth = await getGoogleAuth(u.id);
-      const drive = google.drive({ version: "v3", auth: auth as any });
-      await drive.files.delete({ fileId: link.spreadsheet_id });
-    } catch (err) {
-      console.error("Failed to delete drive file during unlink:", err);
+      const sheetInfo = await createProjectSheet(u.id, project.name, projectId);
+      const syncToken = Math.random().toString(36).substring(2);
+      
+      const [link] = await (sql as any)`
+        INSERT INTO project_sheet_links 
+          (user_id, project_id, spreadsheet_id, spreadsheet_url, sheet_id, tab_name, sync_token)
+        VALUES 
+          (${u.id}, ${projectId}, ${sheetInfo.spreadsheetId}, ${sheetInfo.spreadsheetUrl}, ${sheetInfo.sheetId}, ${sheetInfo.tabName}, ${syncToken})
+        RETURNING *
+      `;
+      
+      await addStatusValidation(u.id, projectId, link.spreadsheet_id, link.sheet_id);
+      await syncProjectToSheet(u.id, projectId, link.spreadsheet_id, link.tab_name);
+      
+      res.status(201).json(link);
+    } catch (err: any) {
+      console.error("Failed to link sheet:", err);
+      res.status(500).json({ error: err.message || "Failed to link sheet" });
     }
-    await sql`DELETE FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
-  }
-  res.json({ ok: true });
-});
+  });
+
+  apiRouter.delete("/projects/:id/sheet-link", async (req, res) => {
+    const projectId = req.params.id;
+    const u = user(req);
+    if (!u) return forbidden(res);
+    
+    const [link] = await sql<ProjectSheetLink[]>`SELECT * FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+    if (link) {
+      try {
+        const auth = await getGoogleAuth(u.id);
+        const drive = google.drive({ version: "v3", auth: auth as any });
+        await drive.files.delete({ fileId: link.spreadsheet_id });
+      } catch (err) {
+        console.error("Failed to delete drive file during unlink:", err);
+      }
+      await sql`DELETE FROM project_sheet_links WHERE project_id = ${projectId} AND user_id = ${u.id}`;
+    }
+    res.json({ ok: true });
+  });
+}
 
 // ---------- workspace sheets ----------
 
-apiRouter.get("/workspaces/:id/sheet-links", async (req, res) => {
+if (config.sheetsSyncEnabled) {
+  apiRouter.get("/workspaces/:id/sheet-links", async (req, res) => {
   const workspaceId = req.params.id;
   const u = user(req);
   if (!u) return forbidden(res);
@@ -673,7 +762,7 @@ apiRouter.post("/workspaces/:id/sheet-links", async (req, res) => {
     const syncToken = Math.random().toString(36).substring(2);
     
     for (const linkInfo of sheetInfo.links) {
-      await sql`
+      await (sql as any)`
         INSERT INTO project_sheet_links 
           (user_id, project_id, spreadsheet_id, spreadsheet_url, sheet_id, tab_name, layout_mode, sync_token, linked_at_workspace_id)
         VALUES 
@@ -728,10 +817,10 @@ apiRouter.delete("/workspaces/:id/sheet-links", async (req, res) => {
     `;
   }
   res.json({ ok: true });
-});
+  });
+  }
 
-// ---------- board ----------
-
+  // ---------- board ----------
 apiRouter.get("/projects/:id/board", async (req, res) => {
   const projectId = req.params.id;
   const ws = await projectWorkspace(projectId);
@@ -741,6 +830,26 @@ apiRouter.get("/projects/:id/board", async (req, res) => {
     ? await sql<Task[]>`SELECT * FROM tasks WHERE column_id IN ${sql(columns.map((c) => c.id))} ORDER BY position`
     : [];
   res.json({ columns, tasks: await withAssignees(tasks), workspaceId: ws });
+});
+
+apiRouter.patch("/projects/:id/columns/reorder", async (req, res) => {
+  const projectId = req.params.id;
+  const ws = await projectWorkspace(projectId);
+  if (ws === null) return notFound(res);
+  const u = user(req);
+  if (!u || !atLeast(await getRole(u.id, ws), "write")) return forbidden(res);
+  
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids)) return bad(res, "ids array required");
+  
+  await sql.begin(async (sql) => {
+    for (let i = 0; i < ids.length; i++) {
+      await sql`UPDATE columns SET position = ${i} WHERE id = ${ids[i]} AND project_id = ${projectId}`;
+    }
+  });
+  
+  syncProjectToAllLinkedSheets(projectId);
+  res.json({ ok: true });
 });
 
 apiRouter.post("/projects/:id/columns", async (req, res) => {
@@ -770,6 +879,21 @@ apiRouter.patch("/columns/:id/done", async (req, res) => {
   
   syncProjectToAllLinkedSheets(ctx.project_id);
   res.json({ ok: true });
+});
+
+apiRouter.patch("/columns/:id", async (req, res) => {
+  const ctx = await columnWorkspace(req.params.id);
+  if (!ctx) return notFound(res);
+  const u = user(req);
+  if (!u || !atLeast(await getRole(u.id, ctx.workspace_id), "write")) return forbidden(res);
+  
+  const name = str(req.body?.name, 100)?.trim();
+  if (!name) return bad(res, "name required");
+
+  const [row] = await sql`UPDATE columns SET name = ${name} WHERE id = ${req.params.id} RETURNING *`;
+  
+  syncProjectToAllLinkedSheets(ctx.project_id);
+  res.json(row);
 });
 
 apiRouter.delete("/columns/:id", async (req, res) => {
@@ -836,10 +960,13 @@ apiRouter.post("/tasks", async (req, res) => {
     ? JSON.stringify(req.body.externalAssignees.filter((n: any) => typeof n === "string").map((n: string) => n.trim()).filter(Boolean))
     : "[]";
 
+  const [colInfo] = columnId ? await sql<{ is_done: number }[]>`SELECT is_done FROM columns WHERE id = ${columnId}` : [null];
+  const completedAt = colInfo?.is_done ? new Date().toISOString() : null;
+
   const [task] = await sql<Task[]>`
-    INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by, external_assignees)
+    INSERT INTO tasks (column_id, title, description, progress, priority, due_date, tags, position, created_by, external_assignees, completed_at)
     VALUES (${columnId ?? null}, ${title}, ${str(req.body?.description, 10000) ?? ""}, ${progress}, ${priority},
-            ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${creatorId}, ${externalAssignees})
+            ${str(req.body?.dueDate, 30) ?? null}::timestamp, ${JSON.stringify(tags)}, ${nextRow?.p ?? 0}, ${creatorId}, ${externalAssignees}, ${completedAt}::timestamp)
     RETURNING *
   `;
 

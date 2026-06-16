@@ -149,17 +149,19 @@ authRouter.get("/:provider/login", async (req, res) => {
   const state = oidc.randomState();
 
   oidc.calculatePKCECodeChallenge(codeVerifier).then((challenge) => {
+    const googleScopes = config.sheetsSyncEnabled 
+      ? "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file" 
+      : "openid email profile";
+    
     const url = oidc.buildAuthorizationUrl(provider, {
       redirect_uri: `${config.appUrl}/api/auth/${name}/callback`,
-      scope: name === "google" 
-        ? "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file" 
-        : "openid email profile",
-      prompt: name === "google" ? "consent" : undefined,
-      access_type: name === "google" ? "offline" : undefined,
+      scope: name === "google" ? googleScopes : "openid email profile",
+      prompt: (name === "google" && config.sheetsSyncEnabled) ? "consent" : undefined,
+      access_type: (name === "google") ? "offline" : undefined,
       state,
       code_challenge: challenge,
       code_challenge_method: "S256",
-    });
+    } as any);
     const flow = jwt.sign({ codeVerifier, state, provider: name }, config.jwtSecret, {
       expiresIn: "10m",
     });
@@ -200,7 +202,7 @@ authRouter.get("/:provider/callback", async (req, res) => {
 
     if (name === "google" && tokens.access_token) {
       const encryptedRefresh = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
-      await sql`
+      await (sql as any)`
         INSERT INTO google_tokens (user_id, access_token, refresh_token, expiry_date, scope)
         VALUES (${user.id}, ${tokens.access_token}, ${encryptedRefresh}, ${tokens.expires_at ?? null}, ${tokens.scope ?? null})
         ON CONFLICT (user_id) DO UPDATE SET
@@ -230,7 +232,13 @@ authRouter.get("/google/status", requireAuth, async (req, res) => {
   const u = (req as AuthedRequest).user;
   const [token] = await sql`SELECT scope, refresh_token FROM google_tokens WHERE user_id = ${u.id}`;
   const hasSheets = token?.scope?.includes("spreadsheets") ?? false;
-  res.json({ connected: !!token, hasSheets, hasRefreshToken: !!token?.refresh_token, appUrl: config.appUrl });
+  res.json({ 
+    connected: !!token, 
+    hasSheets, 
+    hasRefreshToken: !!token?.refresh_token, 
+    appUrl: config.appUrl,
+    sheetsSyncEnabled: config.sheetsSyncEnabled
+  });
 });
 
 authRouter.get("/me", requireAuth, (req, res) => {

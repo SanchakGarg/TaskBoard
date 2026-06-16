@@ -45,18 +45,34 @@ export const initDb = async () => {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS workspace_folders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      parent_id UUID REFERENCES workspace_folders(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS projects (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+      folder_id UUID REFERENCES workspace_folders(id) ON DELETE SET NULL,
       view_type TEXT NOT NULL DEFAULT 'kanban' CHECK (view_type IN ('kanban','list')),
       position INTEGER NOT NULL DEFAULT 0,
       share_id UUID UNIQUE DEFAULT gen_random_uuid(),
       share_role TEXT CHECK (share_role IN ('admin','write','checker','read')),
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+  `;
+
+  await sql`
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES workspace_folders(id) ON DELETE SET NULL;
   `;
 
   await sql`

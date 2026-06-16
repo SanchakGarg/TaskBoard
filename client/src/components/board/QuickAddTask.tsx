@@ -21,6 +21,7 @@ interface QuickAddTaskProps {
 
 export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: QuickAddTaskProps) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("low");
   const [progress, setProgress] = useState(0);
@@ -49,6 +50,7 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
     try {
       await onCreate({
         title: title.trim(),
+        description: description.trim(),
         dueDate: dueDate || undefined,
         tags: selectedTags,
         priority,
@@ -78,6 +80,14 @@ export function QuickAddTask({ onCreate, onCancel, tags = [], members = [] }: Qu
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && onCancel()}
         className="!border-transparent !px-1 !py-1"
+      />
+
+      <textarea
+        placeholder="Description…"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full resize-none border-none bg-transparent px-1 py-0 text-sm text-ink-soft outline-none placeholder:text-ink-soft/40"
+        rows={2}
       />
 
       {/* calendar + priority above */}

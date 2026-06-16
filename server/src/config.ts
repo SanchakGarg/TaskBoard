@@ -12,6 +12,7 @@ export const config = {
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   isProd: process.env.NODE_ENV === "production",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
+  sheetsSyncEnabled: process.env.ENABLE_SHEETS_SYNC !== "false", // Default to true if not set
 
   auth: {
     guest: {

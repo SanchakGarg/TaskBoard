@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setPublicShareId } from "./lib/api";
-import type { Project, Workspace, View, Column, Task } from "./lib/types";
+import type { Project, Workspace, View, Column, Task, Folder } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
 import { Sidebar } from "./components/Sidebar";
@@ -49,6 +49,7 @@ export function App() {
   setToastInstance(toastCtx);
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [view, setViewState] = useState<View>(parseHash);
   const [activeWs, setActiveWs] = useState<string | null>(null);
@@ -86,6 +87,11 @@ export function App() {
       ]);
       setWorkspaces(ws);
       setProjects(ps);
+
+      const folderPromises = ws.map((w) => api.get<Folder[]>(`/workspaces/${w.id}/folders`));
+      const allFolders = await Promise.all(folderPromises);
+      setFolders(allFolders.flat());
+
       setActiveWs((prev) => prev ?? ws[0]?.id ?? null);
       setHasLoadedOnce(true);
     } catch (e) {
@@ -154,11 +160,36 @@ export function App() {
     setActiveWs(ws.id);
   };
 
-  const createProject = async (workspaceId: string, name: string, viewType: "kanban" | "list") => {
-    const p = await api.post<Project>("/projects", { name, viewType, workspaceId });
+  const createProject = async (workspaceId: string, name: string, viewType: "kanban" | "list", folderId?: string) => {
+    const p = await api.post<Project>("/projects", { name, viewType, workspaceId, folderId });
     await loadAll();
     setActiveWs(workspaceId);
     setView({ kind: "board", projectId: p.id });
+  };
+
+  const createFolder = async (workspaceId: string, name: string, parentId?: string) => {
+    await api.post(`/workspaces/${workspaceId}/folders`, { name, parentId });
+    await loadAll();
+  };
+
+  const moveProject = async (projectId: string, workspaceId: string, folderId: string | null, position: number) => {
+    await api.patch(`/projects/${projectId}`, { workspaceId, folderId, position });
+    await loadAll();
+  };
+
+  const moveFolder = async (folderId: string, parentId: string | null, position: number) => {
+    await api.patch(`/folders/${folderId}`, { parentId, position });
+    await loadAll();
+  };
+
+  const renameFolder = async (folderId: string, name: string) => {
+    await api.patch(`/folders/${folderId}`, { name });
+    await loadAll();
+  };
+
+  const deleteFolder = async (folderId: string) => {
+    await api.delete(`/folders/${folderId}`);
+    await loadAll();
   };
 
   const reorderProjects = (ids: string[]) => {
@@ -187,11 +218,17 @@ export function App() {
   const sidebar = (
     <Sidebar
       workspaces={workspaces}
+      folders={folders}
       projects={projects}
       view={view}
       onNavigate={navigate}
       onCreateWorkspace={createWorkspace}
       onCreateProject={createProject}
+      onCreateFolder={createFolder}
+      onMoveProject={moveProject}
+      onMoveFolder={moveFolder}
+      onRenameFolder={renameFolder}
+      onDeleteFolder={deleteFolder}
       onOpenSettings={(ws) => {
         setSettingsWs(ws);
         setDrawerOpen(false);

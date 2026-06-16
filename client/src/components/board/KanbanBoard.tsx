@@ -27,6 +27,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -40,6 +41,8 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     anchor: EditorAnchor;
   } | null>(null);
   const [colMenu, setColMenu] = useState<{ x: number; y: number; columnId: string } | null>(null);
+  const [renamingColumn, setRenamingColumn] = useState<string | null>(null);
+  const [renamedName, setRenamedName] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const confirm = useConfirm();
 
@@ -59,6 +62,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
       );
       setColumns(board.columns);
       setTasks(board.tasks);
+      setWorkspaceId(board.workspaceId);
       const [tagList, memberList] = await Promise.all([
         api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`),
         api.get<Member[]>(`/workspaces/${board.workspaceId}/members`),
@@ -69,6 +73,17 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
       setIsInitialLoad(false);
     }
   }, [projectId, publicData]);
+
+  const refreshTags = useCallback(async () => {
+    if (workspaceId && !publicData) {
+      try {
+        const tagList = await api.get<TagDef[]>(`/workspaces/${workspaceId}/tags`);
+        setTags(tagList);
+      } catch (err) {
+        console.error("Failed to refresh tags:", err);
+      }
+    }
+  }, [workspaceId, publicData]);
 
   useEffect(() => {
     setIsInitialLoad(true);
@@ -117,7 +132,29 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     [load, columns]
   );
 
-  const { dragging, overColumn, dragProps, dropProps } = useBoardDrag(moveTask);
+  const moveColumn = useCallback(
+    (columnId: string, toIndex: number) => {
+      setColumns((prev) => {
+        const filtered = prev.filter((c) => c.id !== columnId);
+        const col = prev.find((c) => c.id === columnId);
+        if (!col) return prev;
+        const next = [...filtered];
+        next.splice(toIndex, 0, col);
+        return next.map((c, i) => ({ ...c, position: i }));
+      });
+
+      const nextIds = [...columns.filter((c) => c.id !== columnId)];
+      const col = columns.find((c) => c.id === columnId);
+      if (col) {
+        nextIds.splice(toIndex, 0, col);
+        api.patch(`/projects/${projectId}/columns/reorder`, { ids: nextIds.map((c) => c.id) })
+          .catch(load);
+      }
+    },
+    [columns, projectId, load]
+  );
+
+  const { dragging, overColumn, overColumnEdge, dragProps, columnDragProps, dropProps } = useBoardDrag(moveTask, moveColumn);
 
   const matches = (t: Task) => {
     const q = search.trim().toLowerCase();
@@ -172,17 +209,16 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
 
   const createTask = async (
     columnId: string,
-    data: { title: string; dueDate?: string; tags: string[]; priority: string; progress: number; assignees: string[]; externalAssignees: string[] }
+    data: { title: string; description: string; dueDate?: string; tags: string[]; priority: string; progress: number; assignees: string[]; externalAssignees: string[] }
   ) => {
+    const targetCol = columns.find(c => c.id === columnId);
+    const completed_at = targetCol?.is_done ? new Date().toISOString() : null;
+
     const newTask = await api.post<Task>("/tasks", { columnId, ...data });
     // Optimistically add to local state — no full reload needed
-    setTasks((prev) => [...prev, newTask]);
+    setTasks((prev) => [...prev, { ...newTask, completed_at: newTask.completed_at || completed_at }]);
     setAddingTo(null);
-    // Fetch fresh tags in background in case new ones were registered
-    if (!publicData) {
-      const board = await api.get<{ workspaceId: string }>(`/projects/${projectId}/board`);
-      api.get<TagDef[]>(`/workspaces/${board.workspaceId}/tags`).then(setTags).catch(() => {});
-    }
+    refreshTags();
   };
 
   const createColumn = async () => {
@@ -192,6 +228,17 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     setNewColumn("");
     setAddingColumn(false);
     load();
+  };
+
+  const renameColumn = async (columnId: string) => {
+    const name = renamedName.trim();
+    if (!name) {
+      setRenamingColumn(null);
+      return;
+    }
+    setColumns(prev => prev.map(c => c.id === columnId ? { ...c, name } : c));
+    setRenamingColumn(null);
+    await api.patch(`/columns/${columnId}`, { name });
   };
 
   if (isInitialLoad && columns.length === 0) {
@@ -230,32 +277,63 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
       </div>
 
       <div className="flex flex-1 gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-5">
-        {columns.map((col) => {
+        {columns.map((col, idx) => {
           const colTasks = tasks
             .filter((t) => t.column_id === col.id && matches(t))
             .sort((a, b) => a.position - b.position);
           return (
             <section
               key={col.id}
-              {...(canWrite || role === "checker" ? dropProps(col.id, colTasks.length) : {})}
+              {...(canWrite || role === "checker" ? dropProps(col.id, colTasks.length, idx) : {})}
               onContextMenu={(e) => {
                 if (!canWrite) return;
                 e.preventDefault();
                 setColMenu({ x: e.clientX, y: e.clientY, columnId: col.id });
               }}
-              className={`flex h-fit max-h-full w-[82vw] shrink-0 flex-col rounded-xl border-2 p-3 sm:w-72 ${col.is_done ? "border-pen-green/50 bg-pen-green/5" : "border-ink/30 bg-paper-dark/50"} ${overColumn === col.id && dragging ? "drop-target" : ""}`}
+              className={`flex h-fit max-h-full w-[82vw] shrink-0 flex-col rounded-xl border-2 p-3 sm:w-72 ${col.is_done ? "border-pen-green/50 bg-pen-green/5" : "border-ink/30 bg-paper-dark/50"} ${overColumn === col.id && dragging?.taskId ? "drop-target" : ""} ${overColumnEdge === col.id && dragging?.columnId ? "border-pen-blue border-dashed" : ""}`}
             >
-              <header className="group/col mb-3 flex items-center gap-1">
-                <h3 className="font-hand font-bold">
-                  {col.name}
-                  <span className="ml-2 text-sm font-normal text-ink-soft">{colTasks.length}</span>
-                </h3>
-                {!!col.is_done && (
-                  <Tooltip label="Tasks here count as completed">
-                    <CheckCircle2 size={14} className="text-pen-green" />
-                  </Tooltip>
+              <header 
+                {...(canWrite ? columnDragProps(col.id) : {})}
+                className="group/col mb-3 flex items-center gap-1 cursor-grab active:cursor-grabbing"
+              >
+                {renamingColumn === col.id ? (
+                  <Input
+                    autoFocus
+                    value={renamedName}
+                    onChange={(e) => setRenamedName(e.target.value)}
+                    onBlur={() => renameColumn(col.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") renameColumn(col.id);
+                      if (e.key === "Escape") setRenamingColumn(null);
+                    }}
+                    className="!py-0.5 !text-sm"
+                  />
+                ) : (
+                  <>
+                    <h3 className="font-hand font-bold truncate max-w-[160px]">
+                      {col.name}
+                      <span className="ml-2 text-sm font-normal text-ink-soft">{colTasks.length}</span>
+                    </h3>
+                    {!!col.is_done && (
+                      <Tooltip label="Tasks here count as completed">
+                        <CheckCircle2 size={14} className="text-pen-green" />
+                      </Tooltip>
+                    )}
+                  </>
                 )}
                 <span className="ml-auto flex items-center gap-0.5">
+                  {canWrite && renamingColumn !== col.id && (
+                    <button
+                      aria-label={`Rename ${col.name}`}
+                      onClick={() => {
+                        setRenamingColumn(col.id);
+                        setRenamedName(col.name);
+                      }}
+                      className="anim-hover cursor-pointer rounded p-1 text-ink-soft opacity-0 hover:text-pen-blue group-hover/col:opacity-100"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   {isAdmin && !col.is_done && (
                     <Tooltip label="Make this the done column">
                       <button
@@ -389,6 +467,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
               prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t))
             );
             setEditing(null);
+            refreshTags();
           }}
           onDelete={() => {
             setTasks((prev) => prev.filter((t) => t.id !== editing.task.id));

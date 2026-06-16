@@ -11,18 +11,28 @@ import {
   ChevronRight,
   FolderOpen,
   User,
+  Folder as FolderIcon,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button, ContextMenu, Divider, Input, Modal, Tooltip, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
-import type { Project, Workspace, View } from "../lib/types";
+import type { Project, Workspace, View, Folder } from "../lib/types";
 
 interface SidebarProps {
   workspaces: Workspace[];
+  folders: Folder[];
   projects: Project[];
   view: View;
   onNavigate: (view: View) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
-  onCreateProject: (workspaceId: string, name: string, viewType: "kanban" | "list") => Promise<void>;
+  onCreateProject: (workspaceId: string, name: string, viewType: "kanban" | "list", folderId?: string) => Promise<void>;
+  onCreateFolder: (workspaceId: string, name: string, parentId?: string) => Promise<void>;
+  onMoveProject: (projectId: string, workspaceId: string, folderId: string | null, position: number) => Promise<void>;
+  onMoveFolder: (folderId: string, parentId: string | null, position: number) => Promise<void>;
+  onRenameFolder: (folderId: string, name: string) => Promise<void>;
+  onDeleteFolder: (folderId: string) => Promise<void>;
   onOpenSettings: (ws: Workspace) => void;
   onOpenWorkspaceShare: (ws: Workspace) => void;
   onOpenProjectSettings: (p: Project) => void;
@@ -34,11 +44,17 @@ interface SidebarProps {
 
 export function Sidebar({
   workspaces,
+  folders,
   projects,
   view,
   onNavigate,
   onCreateWorkspace,
   onCreateProject,
+  onCreateFolder,
+  onMoveProject,
+  onMoveFolder,
+  onRenameFolder,
+  onDeleteFolder,
   onOpenSettings,
   onOpenWorkspaceShare,
   onOpenProjectSettings,
@@ -47,22 +63,33 @@ export function Sidebar({
   collapsed,
   onToggle,
 }: SidebarProps) {
-  const [creatingIn, setCreatingIn] = useState<string | null>(null); // workspace id
+  const [creatingIn, setCreatingIn] = useState<{ workspaceId: string; folderId?: string } | null>(null);
+  const [creatingFolderIn, setCreatingFolderIn] = useState<{ workspaceId: string; parentId?: string } | null>(null);
+  const [renamingFolder, setRenamingFolder] = useState<Folder | null>(null);
   const [creatingWs, setCreatingWs] = useState(false);
   const [name, setName] = useState("");
+  const [folderName, setFolderName] = useState("");
+  const [renamedFolderName, setRenamedFolderName] = useState("");
   const [wsName, setWsName] = useState("");
   const [viewType, setViewType] = useState<"kanban" | "list">("kanban");
   const [closedWs, setClosedWs] = useState<Set<string>>(new Set());
+  const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
 
   const workspaceMenu = (ws: Workspace): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
-    if (ws.role === "admin")
+    if (ws.role === "admin") {
       items.push({
         label: "New project",
         icon: <Plus size={14} />,
-        onClick: () => setCreatingIn(ws.id),
+        onClick: () => setCreatingIn({ workspaceId: ws.id }),
       });
+      items.push({
+        label: "New folder",
+        icon: <FolderIcon size={14} />,
+        onClick: () => setCreatingFolderIn({ workspaceId: ws.id }),
+      });
+    }
     items.push({
       label: "Share",
       icon: <Share2 size={14} />,
@@ -76,13 +103,59 @@ export function Sidebar({
     return items;
   };
 
+  const folderMenu = (folder: Folder, role: string): ContextMenuItem[] => {
+    const items: ContextMenuItem[] = [];
+    if (role === "admin") {
+      items.push({
+        label: "New project",
+        icon: <Plus size={14} />,
+        onClick: () => setCreatingIn({ workspaceId: folder.workspace_id, folderId: folder.id }),
+      });
+      items.push({
+        label: "New subfolder",
+        icon: <FolderIcon size={14} />,
+        onClick: () => setCreatingFolderIn({ workspaceId: folder.workspace_id, parentId: folder.id }),
+      });
+      items.push({
+        label: "Rename folder",
+        icon: <Pencil size={14} />,
+        onClick: () => {
+          setRenamingFolder(folder);
+          setRenamedFolderName(folder.name);
+        },
+      });
+      items.push({
+        label: "Delete folder",
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onClick: () => onDeleteFolder(folder.id),
+      });
+    }
+    return items;
+  };
+
   const submitProject = async () => {
     const trimmed = name.trim();
     if (!trimmed || creatingIn === null) return;
-    await onCreateProject(creatingIn, trimmed, viewType);
+    await onCreateProject(creatingIn.workspaceId, trimmed, viewType, creatingIn.folderId);
     setName("");
     setViewType("kanban");
     setCreatingIn(null);
+  };
+
+  const submitFolder = async () => {
+    const trimmed = folderName.trim();
+    if (!trimmed || creatingFolderIn === null) return;
+    await onCreateFolder(creatingFolderIn.workspaceId, trimmed, creatingFolderIn.parentId);
+    setFolderName("");
+    setCreatingFolderIn(null);
+  };
+
+  const submitFolderRename = async () => {
+    const trimmed = renamedFolderName.trim();
+    if (!trimmed || !renamingFolder) return;
+    await onRenameFolder(renamingFolder.id, trimmed);
+    setRenamingFolder(null);
   };
 
   const submitWorkspace = async () => {
@@ -100,6 +173,36 @@ export function Sidebar({
       else next.add(id);
       return next;
     });
+
+  const toggleFolder = (id: string) =>
+    setClosedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // D&D handling for Sidebar
+  const [dragging, setDragging] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
+
+  const handleDragStart = (kind: "project" | "folder", id: string) => {
+    setDragging({ kind, id });
+  };
+
+  const handleDrop = async (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragging) return;
+
+    if (dragging.kind === "project") {
+      await onMoveProject(dragging.id, workspaceId, folderId, atIndex ?? 0);
+    } else if (dragging.kind === "folder") {
+      // Don't allow moving a folder into itself or its descendants
+      if (dragging.id === folderId) return;
+      await onMoveFolder(dragging.id, folderId, atIndex ?? 0);
+    }
+    setDragging(null);
+  };
 
   return (
     <>
@@ -157,10 +260,20 @@ export function Sidebar({
 
         <div className="flex-1 overflow-y-auto px-2">
           {workspaces.map((ws) => {
-            const wsProjects = projects.filter((p) => p.workspace_id === ws.id);
             const closed = closedWs.has(ws.id);
+            const wsProjects = projects.filter((p) => p.workspace_id === ws.id && !p.folder_id);
+            const wsFolders = folders.filter((f) => f.workspace_id === ws.id && !f.parent_id);
+
             return (
-              <div key={ws.id} className="mb-1">
+              <div
+                key={ws.id}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => handleDrop(e, ws.id, null)}
+                className="mb-1"
+              >
                 {!collapsed && (
                   <div
                     className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
@@ -185,19 +298,12 @@ export function Sidebar({
                     {ws.role === "admin" && (
                       <button
                         aria-label={`New project in ${ws.name}`}
-                        onClick={() => setCreatingIn(ws.id)}
+                        onClick={() => setCreatingIn({ workspaceId: ws.id })}
                         className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
                       >
                         <Plus size={14} />
                       </button>
                     )}
-                    <button
-                      aria-label={`Share ${ws.name}`}
-                      onClick={() => onOpenWorkspaceShare(ws)}
-                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
-                    >
-                      <Share2 size={13} />
-                    </button>
                     <button
                       aria-label={`Settings for ${ws.name}`}
                       onClick={() => onOpenSettings(ws)}
@@ -208,86 +314,49 @@ export function Sidebar({
                   </div>
                 )}
 
-                {(!closed || collapsed) &&
-                  wsProjects.map((p) => (
-                    <div
-                      key={p.id}
-                      className="group/project relative"
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setMenu({
-                          x: e.clientX,
-                          y: e.clientY,
-                          items: [
-                            {
-                              label: "Share project",
-                              icon: <Share2 size={14} />,
-                              onClick: () => onOpenProjectShare(p),
-                            },
-                            {
-                              label: "Project settings",
-                              icon: <Settings size={14} />,
-                              onClick: () => onOpenProjectSettings(p),
-                            },
-                          ],
-                        });
-                      }}
-                    >
-                      <NavItem
-                        icon={
-                          p.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />
-                        }
-                        label={p.name}
+                {(!closed || collapsed) && (
+                  <div className={!collapsed ? "pl-2" : ""}>
+                    {wsFolders.map((f, idx) => (
+                      <FolderTree
+                        key={f.id}
+                        index={idx}
+                        folder={f}
+                        folders={folders}
+                        projects={projects}
+                        view={view}
+                        onNavigate={onNavigate}
                         collapsed={collapsed}
-                        indent={!collapsed}
-                        active={view.kind === "board" && view.projectId === p.id}
-                        onClick={() => onNavigate({ kind: "board", projectId: p.id })}
+                        closedFolders={closedFolders}
+                        toggleFolder={toggleFolder}
+                        setMenu={setMenu}
+                        folderMenu={folderMenu}
+                        wsRole={ws.role}
+                        handleDragStart={handleDragStart}
+                        handleDrop={handleDrop}
+                        onOpenProjectShare={onOpenProjectShare}
+                        onOpenProjectSettings={onOpenProjectSettings}
                       />
-                      {!collapsed && (
-                        <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover/project:opacity-100">
-                          <button
-                            aria-label={`Share ${p.name}`}
-                            onClick={() => onOpenProjectShare(p)}
-                            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-ink"
-                          >
-                            <Share2 size={13} />
-                          </button>
-                          <button
-                            aria-label={`Settings for ${p.name}`}
-                            onClick={() => onOpenProjectSettings(p)}
-                            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-ink"
-                          >
-                            <Settings size={13} />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  ))}
-
-                {!collapsed && !closed && wsProjects.length === 0 && (
-                  <p className="px-6 py-1 text-xs text-ink-soft/70">No projects yet</p>
+                    ))}
+                    {wsProjects.map((p, idx) => (
+                      <ProjectNavItem
+                        key={p.id}
+                        index={wsFolders.length + idx}
+                        project={p}
+                        view={view}
+                        onNavigate={onNavigate}
+                        collapsed={collapsed}
+                        setMenu={setMenu}
+                        onOpenProjectShare={onOpenProjectShare}
+                        onOpenProjectSettings={onOpenProjectSettings}
+                        handleDragStart={handleDragStart}
+                        handleDrop={handleDrop}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             );
           })}
-          
-          {/* Shared Projects */}
-          {!collapsed && projects.filter(p => !workspaces.find(w => w.id === p.workspace_id)).length > 0 && (
-            <div className="mt-4">
-              <Divider label="shared projects" className="mx-3 my-3" />
-              {projects.filter(p => !workspaces.find(w => w.id === p.workspace_id)).map(p => (
-                <NavItem
-                  key={p.id}
-                  icon={p.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />}
-                  label={p.name}
-                  collapsed={collapsed}
-                  active={view.kind === "board" && view.projectId === p.id}
-                  onClick={() => onNavigate({ kind: "board", projectId: p.id })}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="p-2 flex flex-col gap-2">
@@ -367,6 +436,46 @@ export function Sidebar({
         </form>
       </Modal>
 
+      <Modal open={creatingFolderIn !== null} onClose={() => setCreatingFolderIn(null)} title="New folder">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitFolder();
+          }}
+          className="flex flex-col gap-3"
+        >
+          <Input
+            autoFocus
+            placeholder="Folder name"
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+          />
+          <Button type="submit" disabled={!folderName.trim()}>
+            Create
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal open={renamingFolder !== null} onClose={() => setRenamingFolder(null)} title="Rename folder">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitFolderRename();
+          }}
+          className="flex flex-col gap-3"
+        >
+          <Input
+            autoFocus
+            placeholder="Folder name"
+            value={renamedFolderName}
+            onChange={(e) => setRenamedFolderName(e.target.value)}
+          />
+          <Button type="submit" disabled={!renamedFolderName.trim()}>
+            Rename
+          </Button>
+        </form>
+      </Modal>
+
       <Modal open={creatingWs} onClose={() => setCreatingWs(false)} title="New workspace">
         <form
           onSubmit={(e) => {
@@ -388,6 +497,207 @@ export function Sidebar({
       </Modal>
     </>
   );
+}
+
+function FolderTree({
+  folder,
+  index,
+  folders,
+  projects,
+  view,
+  onNavigate,
+  collapsed,
+  closedFolders,
+  toggleFolder,
+  setMenu,
+  folderMenu,
+  wsRole,
+  handleDragStart,
+  handleDrop,
+  onOpenProjectShare,
+  onOpenProjectSettings,
+}: {
+  folder: Folder;
+  index: number;
+  folders: Folder[];
+  projects: Project[];
+  view: View;
+  onNavigate: (v: View) => void;
+  collapsed: boolean;
+  closedFolders: Set<string>;
+  toggleFolder: (id: string) => void;
+  setMenu: (m: any) => void;
+  folderMenu: (f: Folder, r: string) => ContextMenuItem[];
+  wsRole: string;
+  handleDragStart: (kind: "project" | "folder", id: string) => void;
+  handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
+  onOpenProjectShare: (p: Project) => void;
+  onOpenProjectSettings: (p: Project) => void;
+}) {
+  const closed = closedFolders.has(folder.id);
+  const subfolders = folders.filter((f) => f.parent_id === folder.id);
+  const subprojects = projects.filter((p) => p.folder_id === folder.id);
+
+  return (
+    <div
+      className="mb-0.5"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => handleDrop(e, folder.workspace_id, folder.parent_id, index)}
+    >
+      {!collapsed && (
+        <div
+          draggable
+          onDragStart={() => handleDragStart("folder", folder.id)}
+          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(folder, wsRole) });
+          }}
+        >
+          <button
+            onClick={() => toggleFolder(folder.id)}
+            className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-xs font-medium text-ink-soft hover:text-ink"
+          >
+            <ChevronRight
+              size={12}
+              className={`shrink-0 transition-transform duration-200 ${closed ? "" : "rotate-90"}`}
+            />
+            <FolderIcon size={14} className="shrink-0 text-pen-amber/80" />
+            <span className="truncate">{folder.name}</span>
+          </button>
+        </div>
+      )}
+
+      {(!closed || collapsed) && (
+        <div 
+          className={!collapsed ? "pl-3 border-l border-ink/10 ml-1.5" : ""}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => handleDrop(e, folder.workspace_id, folder.id)}
+        >
+          {subfolders.map((f, idx) => (
+            <FolderTree
+              key={f.id}
+              index={idx}
+              folder={f}
+              folders={folders}
+              projects={projects}
+              view={view}
+              onNavigate={onNavigate}
+              collapsed={collapsed}
+              closedFolders={closedFolders}
+              toggleFolder={toggleFolder}
+              setMenu={setMenu}
+              folderMenu={folderMenu}
+              wsRole={wsRole}
+              handleDragStart={handleDragStart}
+              handleDrop={handleDrop}
+              onOpenProjectShare={onOpenProjectShare}
+              onOpenProjectSettings={onOpenProjectSettings}
+            />
+          ))}
+          {subprojects.map((p, idx) => (
+            <ProjectNavItem
+              key={p.id}
+              index={subfolders.length + idx}
+              project={p}
+              view={view}
+              onNavigate={onNavigate}
+              collapsed={collapsed}
+              setMenu={setMenu}
+              onOpenProjectShare={onOpenProjectShare}
+              onOpenProjectSettings={onOpenProjectSettings}
+              handleDragStart={handleDragStart}
+              handleDrop={handleDrop}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function ProjectNavItem({
+  project,
+  index,
+  view,
+  onNavigate,
+  collapsed,
+  setMenu,
+  onOpenProjectShare,
+  onOpenProjectSettings,
+  handleDragStart,
+  handleDrop,
+}: {
+  project: Project;
+  index: number;
+  view: View;
+  onNavigate: (v: View) => void;
+  collapsed: boolean;
+  setMenu: (m: any) => void;
+  onOpenProjectShare: (p: Project) => void;
+  onOpenProjectSettings: (p: Project) => void;
+  handleDragStart: (kind: "project" | "folder", id: string) => void;
+  handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
+}) {
+  return (
+    <div
+      draggable
+      onDragStart={() => handleDragStart("project", project.id)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => handleDrop(e, project.workspace_id, project.folder_id, index)}
+      className="group/project relative"
+      onContextMenu={(e) => {
+...
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({
+          x: e.clientX,
+          y: e.clientY,
+          items: [
+            {
+              label: "Share project",
+              icon: <Share2 size={14} />,
+              onClick: () => onOpenProjectShare(project),
+            },
+            {
+              label: "Project settings",
+              icon: <Settings size={14} />,
+              onClick: () => onOpenProjectSettings(project),
+            },
+          ],
+        });
+      }}
+    >
+      <NavItem
+        icon={project.view_type === "list" ? <List size={18} /> : <KanbanSquare size={18} />}
+        label={project.name}
+        collapsed={collapsed}
+        active={view.kind === "board" && view.projectId === project.id}
+        onClick={() => onNavigate({ kind: "board", projectId: project.id })}
+      />
+      {!collapsed && (
+        <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover/project:opacity-100">
+          <button
+            aria-label={`Settings for ${project.name}`}
+            onClick={() => onOpenProjectSettings(project)}
+            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-ink"
+          >
+            <Settings size={13} />
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
 }
 
 function NavItem({
