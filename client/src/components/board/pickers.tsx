@@ -159,11 +159,15 @@ export function TagPicker({
   const [input, setInput] = useState("");
 
   const toggle = (name: string) =>
-    onChange(selected.includes(name) ? selected.filter((t) => t !== name) : [...selected, name]);
+    onChange(
+      selected.some((s) => s.toLowerCase() === name.toLowerCase())
+        ? selected.filter((t) => t.toLowerCase() !== name.toLowerCase())
+        : [...selected, name]
+    );
 
   const create = () => {
     const t = input.trim();
-    if (t && !selected.includes(t)) onChange([...selected, t]);
+    if (t && !selected.some((s) => s.toLowerCase() === t.toLowerCase())) onChange([...selected, t]);
     setInput("");
   };
 
@@ -212,12 +216,12 @@ export function TagPicker({
           >
             <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: t.color }} />
             <span className="truncate">{t.name}</span>
-            {selected.includes(t.name) && <Check size={13} className="ml-auto shrink-0" />}
+            {selected.some((s) => s.toLowerCase() === t.name.toLowerCase()) && <Check size={13} className="ml-auto shrink-0" />}
           </button>
         ))}
         {/* tags picked but not in the registry yet (new or personal) */}
         {selected
-          .filter((name) => !available.some((t) => t.name === name))
+          .filter((name) => !available.some((t) => t.name.toLowerCase() === name.toLowerCase()))
           .map((name) => (
             <button
               key={name}
@@ -375,7 +379,7 @@ export function Removable({ children, onRemove }: { children: ReactNode; onRemov
 }
 
 export function TagBadge({ name, tags }: { name: string; tags: TagDef[] }) {
-  const def = tags.find((t) => t.name === name);
+  const def = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
   const color = def?.color ?? "#6b645a";
   return (
     <span

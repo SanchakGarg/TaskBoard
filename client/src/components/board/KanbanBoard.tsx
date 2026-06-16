@@ -220,10 +220,10 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     const completed_at = targetCol?.is_done ? new Date().toISOString() : null;
 
     const newTask = await api.post<Task>("/tasks", { columnId, ...data });
+    await refreshTags();
     // Optimistically add to local state — no full reload needed
     setTasks((prev) => [...prev, { ...newTask, completed_at: newTask.completed_at || completed_at }]);
     setAddingTo(null);
-    refreshTags();
   };
 
   const createColumn = async () => {
@@ -467,12 +467,12 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
           anchor={editing.anchor}
           tags={tags}
           members={members}
-          onSave={(updated) => {
+          onSave={async (updated) => {
+            await refreshTags();
             setTasks((prev) =>
               prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t))
             );
             setEditing(null);
-            refreshTags();
           }}
           onDelete={() => {
             setTasks((prev) => prev.filter((t) => t.id !== editing.task.id));

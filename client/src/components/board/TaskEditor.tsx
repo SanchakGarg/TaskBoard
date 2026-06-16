@@ -109,6 +109,7 @@ export function TaskEditor({
 
     api.patch(`/tasks/${task.id}`, {
       ...updated,
+      tags: selectedTags, // Send as array for backend registerTags
       assignees,
       externalAssignees,
     });
