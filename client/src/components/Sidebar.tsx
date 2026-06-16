@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   LayoutDashboard,
   ListChecks,
@@ -77,6 +77,35 @@ export function Sidebar({
   const [closedWs, setClosedWs] = useState<Set<string>>(new Set());
   const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+  // Resizable width
+  const [sidebarWidth, setSidebarWidth] = useState<number>(
+    () => parseInt(localStorage.getItem("sidebar-width") ?? "256", 10)
+  );
+  const widthRef = useRef(sidebarWidth);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(160, Math.min(480, startWidth + ev.clientX - startX));
+      setSidebarWidth(w);
+      widthRef.current = w;
+    };
+    const onUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem("sidebar-width", String(widthRef.current));
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
 
   // D&D state
   const [draggedItem, setDraggedId] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
@@ -178,8 +207,17 @@ export function Sidebar({
           e.preventDefault();
           setMenu({ x: e.clientX, y: e.clientY, items: [{ label: "New workspace", icon: <Plus size={14} />, onClick: () => setCreatingWs(true) }] });
         }}
-        className={`anim-sidebar flex h-full shrink-0 flex-col border-r-2 border-ink/20 bg-paper-dark/60 backdrop-blur ${collapsed ? "w-14" : "w-64"}`}
+        className="anim-sidebar relative flex h-full shrink-0 flex-col border-r-2 border-ink/20 bg-paper-dark/60 backdrop-blur"
+        style={{ width: collapsed ? 56 : sidebarWidth }}
       >
+        {/* resize handle */}
+        {!collapsed && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 right-0 top-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-pen-blue/40 transition-opacity z-10"
+          />
+        )}
+
         <div className={`flex gap-2 p-3 ${collapsed ? "flex-col items-center" : "items-center"}`}>
           <Notebook size={28} className="shrink-0 text-pen-blue" />
           {!collapsed && <span className="font-hand text-lg font-bold">Taskboard</span>}
