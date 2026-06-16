@@ -33,7 +33,7 @@ export function WorkspaceShareSettings({ workspace, onClose }: WorkspaceShareSet
   const [role, setRole] = useState<Role>("write");
   const [error, setError] = useState("");
 
-  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean; sheetsSyncEnabled?: boolean } | null>(null);
   const [workspaceLinks, setWorkspaceLinks] = useState<any[]>([]);
   const [linking, setLinking] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);

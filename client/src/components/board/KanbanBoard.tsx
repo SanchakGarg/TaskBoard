@@ -209,7 +209,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
 
   const createTask = async (
     columnId: string,
-    data: { title: string; description: string; dueDate?: string; tags: string[]; priority: string; progress: number; assignees: string[]; externalAssignees: string[] }
+    data: { title: string; description: string; dueDate?: string; tags: string[]; priority: Priority; progress: number; assignees: string[]; externalAssignees: string[] }
   ) => {
     const targetCol = columns.find(c => c.id === columnId);
     const completed_at = targetCol?.is_done ? new Date().toISOString() : null;

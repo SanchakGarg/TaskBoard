@@ -12,7 +12,6 @@ import {
   FolderOpen,
   User,
   Folder as FolderIcon,
-  MoreVertical,
   Pencil,
   Trash2,
 } from "lucide-react";

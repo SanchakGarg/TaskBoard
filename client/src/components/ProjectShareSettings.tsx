@@ -28,7 +28,7 @@ export function ProjectShareSettings({ project, role, onClose, onSaved }: Projec
   const [inviteError, setInviteError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean; appUrl?: string } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; hasSheets: boolean; appUrl?: string; sheetsSyncEnabled?: boolean } | null>(null);
   const [sheetLink, setSheetLink] = useState<any>(null);
   const [linking, setLinking] = useState(false);
 

@@ -7,6 +7,7 @@ import { ProgressInput } from "./ProgressInput";
 interface QuickAddTaskProps {
   onCreate: (data: {
     title: string;
+    description: string;
     dueDate?: string;
     tags: string[];
     priority: Priority;
