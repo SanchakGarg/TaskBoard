@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, Flag, Pencil, Plus, Trash2 } from "lucide-react";
+import { Calendar, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import {
   atLeast,
-  formatIST,
   parseTags,
   type Column,
   type Member,
@@ -11,11 +10,55 @@ import {
   type TagDef,
   type Task,
 } from "../../lib/types";
-import { Badge, Checkbox, ContextMenu, priorityTone, useConfirm, type ContextMenuItem } from "../ui";
+import { Checkbox, ContextMenu, useConfirm, type ContextMenuItem } from "../ui";
 import { TaskEditor, anchorFromEvent, type EditorAnchor } from "./TaskEditor";
 import { QuickAddTask } from "./QuickAddTask";
 import { CompletedSection } from "./CompletedSection";
 import { AvatarStack, TagBadge } from "./pickers";
+
+// ── helpers (mirrors MyTasksPage) ───────────────────────────────────────────
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const formatShortDate = (iso: string) =>
+  new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(iso));
+
+const PRIORITY_COLOR: Record<Task["priority"], string> = {
+  urgent: "bg-pen-red",
+  high: "bg-pen-amber",
+  medium: "bg-pen-blue",
+  low: "bg-ink/20",
+};
+const PRIORITY_LABELS: Record<Task["priority"], string> = {
+  urgent: "Urgent",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+function getDueInfo(dueDate: string) {
+  const t = todayStr();
+  const d = dueDate.slice(0, 10);
+  if (d < t) {
+    const days = Math.round((new Date(t).getTime() - new Date(d).getTime()) / 86400000);
+    return { label: days === 1 ? "Yesterday" : `${days}d overdue`, cls: "text-pen-red bg-pen-red/10" };
+  }
+  if (d === t) return { label: "Today", cls: "text-pen-amber bg-pen-amber/10" };
+  const days = Math.round((new Date(d).getTime() - new Date(t).getTime()) / 86400000);
+  if (days === 1) return { label: "Tomorrow", cls: "text-pen-blue bg-pen-blue/10" };
+  if (days <= 7) return { label: `${days}d left`, cls: "text-ink-soft bg-ink/5" };
+  return { label: formatShortDate(dueDate), cls: "text-ink-soft bg-ink/5" };
+}
+
+// ── component ────────────────────────────────────────────────────────────────
 
 interface ListBoardProps {
   projectId: string;
@@ -23,7 +66,6 @@ interface ListBoardProps {
   publicData?: { project: any; columns: Column[]; tasks: Task[] } | null;
 }
 
-// Single-list view for projects created as "list". Completion stays a checkbox here.
 export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -31,12 +73,7 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [editing, setEditing] = useState<{ task: Task; anchor: EditorAnchor } | null>(null);
   const [adding, setAdding] = useState(false);
-  const [menu, setMenu] = useState<{
-    x: number;
-    y: number;
-    task: Task;
-    anchor: EditorAnchor;
-  } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; task: Task; anchor: EditorAnchor } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const confirm = useConfirm();
 
@@ -86,11 +123,7 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
   const menuItems = (task: Task, anchor: EditorAnchor): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     if (canWrite)
-      items.push({
-        label: "Edit task",
-        icon: <Pencil size={14} />,
-        onClick: () => setEditing({ task, anchor }),
-      });
+      items.push({ label: "Edit task", icon: <Pencil size={14} />, onClick: () => setEditing({ task, anchor }) });
     if (canWrite)
       items.push({
         label: "Delete",
@@ -107,56 +140,94 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
   };
 
   const row = (t: Task) => {
+    const taskTags = parseTags(t.tags);
+    const dueInfo = t.due_date ? getDueInfo(t.due_date) : null;
+    const showStrip = t.priority !== "low";
+    const isCompleted = !!t.completed_at;
+    const indent = canComplete ? "pl-7" : "pl-0";
+
     return (
       <li
         key={t.id}
-        onDoubleClick={(e) =>
-          canWrite && setEditing({ task: t, anchor: anchorFromEvent(e) })
-        }
+        onDoubleClick={(e) => canWrite && setEditing({ task: t, anchor: anchorFromEvent(e) })}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           const anchor = anchorFromEvent(e);
           if (menuItems(t, anchor).length)
             setMenu({ x: e.clientX, y: e.clientY, task: t, anchor });
         }}
-        className="anim-lift-card flex cursor-pointer select-none items-center gap-3 rounded-lg border-2 border-ink/70 bg-paper p-3 shadow-card"
+        className={`anim-lift-card relative cursor-pointer list-none overflow-hidden rounded-xl border-2 border-ink/10 bg-paper transition-all hover:border-ink/20 hover:shadow-card ${isCompleted ? "opacity-60" : ""}`}
       >
-        {canComplete && (
-          <span onClick={(e) => e.stopPropagation()}>
-            <Checkbox checked={!!t.completed_at} onChange={(d) => toggleComplete(t, d)} />
-          </span>
+        {/* priority accent strip */}
+        {showStrip && (
+          <div className={`absolute inset-y-0 left-0 w-1 ${PRIORITY_COLOR[t.priority]}`} />
         )}
-        <span className={`min-w-0 truncate ${t.completed_at ? "text-ink-soft line-through" : ""}`}>
-          {t.title}
-        </span>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          {parseTags(t.tags)
-            .slice(0, 3)
-            .map((tag) => (
-              <TagBadge key={tag} name={tag} tags={tags} />
-            ))}
+
+        <div className={`flex flex-col gap-2 p-3 ${showStrip ? "pl-4" : ""}`}>
+          {/* row 1: checkbox + title + priority badge */}
+          <div className="flex items-start gap-3">
+            {canComplete && (
+              <span className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Checkbox checked={isCompleted} onChange={(d) => toggleComplete(t, d)} />
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-medium leading-snug ${isCompleted ? "text-ink-soft line-through" : "text-ink"}`}>
+                {t.title}
+              </p>
+            </div>
+            {t.priority !== "low" && (
+              <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                t.priority === "urgent" ? "bg-pen-red/10 text-pen-red" :
+                t.priority === "high" ? "bg-pen-amber/10 text-pen-amber" :
+                "bg-pen-blue/10 text-pen-blue"
+              }`}>
+                {PRIORITY_LABELS[t.priority]}
+              </span>
+            )}
+          </div>
+
+          {/* progress bar */}
           {(t.progress ?? 0) > 0 && (
-            <Badge tone="blue">{Math.max(0, Math.min(100, t.progress))}%</Badge>
+            <div className={indent}>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs text-ink-soft">Progress</span>
+                <span className="text-xs font-semibold text-ink">{t.progress}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    t.progress === 100 ? "bg-pen-green" :
+                    t.progress >= 67 ? "bg-pen-blue" :
+                    t.progress >= 34 ? "bg-pen-amber" :
+                    "bg-pen-red"
+                  }`}
+                  style={{ width: `${Math.max(0, Math.min(100, t.progress ?? 0))}%` }}
+                />
+              </div>
+            </div>
           )}
-          {t.priority !== "low" && (
-            <Badge tone={priorityTone[t.priority]}>
-              <Flag size={10} />
-              {t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}
-            </Badge>
+
+          {/* meta row */}
+          {(taskTags.length > 0 || dueInfo || (t.assignees?.length ?? 0) > 0) && (
+            <div className={`flex flex-wrap items-center gap-1.5 ${indent}`}>
+              {taskTags.slice(0, 3).map((tag) => (
+                <TagBadge key={tag} name={tag} tags={tags} />
+              ))}
+              {taskTags.length > 3 && (
+                <span className="text-xs text-ink-soft">+{taskTags.length - 3}</span>
+              )}
+              {dueInfo && (
+                <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${dueInfo.cls}`}>
+                  <Calendar size={10} />
+                  {dueInfo.label}
+                </span>
+              )}
+              {(t.assignees?.length ?? 0) > 0 && <AvatarStack assignees={t.assignees ?? []} />}
+            </div>
           )}
-          {(() => {
-             if (!t.due_date) return null;
-             const d = new Date(t.due_date);
-             const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
-             return (
-               <Badge tone={hasTime ? "red" : "blue"}>
-                 <Clock size={11} />
-                 {formatIST(t.due_date)}
-               </Badge>
-             );
-          })()}
-          <AvatarStack assignees={t.assignees ?? []} />
-        </span>
+        </div>
       </li>
     );
   };
@@ -166,7 +237,7 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
       <div className="mx-auto min-h-full w-full max-w-3xl p-3 sm:p-5">
         <div className="flex flex-col gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-14 w-full rounded-lg border-2 border-ink/10 bg-paper/50 animate-pulse"></div>
+            <div key={i} className="h-14 w-full rounded-xl border-2 border-ink/10 bg-paper/50 animate-pulse" />
           ))}
         </div>
       </div>
@@ -226,9 +297,7 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
           tags={tags}
           members={members}
           onSave={(updated) => {
-            setTasks((prev) =>
-              prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t))
-            );
+            setTasks((prev) => prev.map((t) => (t.id === editing.task.id ? { ...t, ...updated } : t)));
             setEditing(null);
           }}
           onDelete={() => {

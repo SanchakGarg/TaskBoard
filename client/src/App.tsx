@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CheckSquare, FolderKanban, LayoutDashboard, Settings } from "lucide-react";
 import { api, setPublicShareId } from "./lib/api";
 import type { Project, Workspace, View, Column, Task, Folder } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
@@ -20,6 +21,7 @@ import { setToastInstance, useToast } from "./components/ui/Toast";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { About } from "./components/About";
 import { TermsOfService } from "./components/TermsOfService";
+import { ContextMenu } from "./components/ui";
 
 // view survives reloads via the URL hash: #/mytasks, #/dashboard, #/board/uuid, #/public/uuid
 const parseHash = (): View => {
@@ -69,6 +71,7 @@ export function App() {
   };
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile sidebar
+  const [globalMenu, setGlobalMenu] = useState<{ x: number; y: number } | null>(null);
   const [settingsWs, setSettingsWs] = useState<Workspace | null>(null);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const [sharingWs, setSharingWs] = useState<Workspace | null>(null);
@@ -281,7 +284,14 @@ export function App() {
             onReorder={reorderProjects}
           />
         )}
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main
+          className="min-h-0 flex-1 overflow-y-auto"
+          onContextMenu={(e) => {
+            if (isPublic || isPrivacy || isAbout || isTos) return;
+            e.preventDefault();
+            setGlobalMenu({ x: e.clientX, y: e.clientY });
+          }}
+        >
           {view.kind === "privacy" ? (
             <PrivacyPolicy />
           ) : view.kind === "about" ? (
@@ -309,6 +319,47 @@ export function App() {
           ) : null}
         </main>
       </div>
+
+      {globalMenu && (
+        <ContextMenu
+          x={globalMenu.x}
+          y={globalMenu.y}
+          onClose={() => setGlobalMenu(null)}
+          items={[
+            {
+              label: "My Tasks",
+              icon: <CheckSquare size={14} />,
+              onClick: () => navigate({ kind: "mytasks" }),
+            },
+            {
+              label: "Dashboard",
+              icon: <LayoutDashboard size={14} />,
+              onClick: () => navigate({ kind: "dashboard" }),
+            },
+            ...(currentProject
+              ? [
+                  {
+                    label: `${currentProject.name} settings`,
+                    icon: <Settings size={14} />,
+                    onClick: () => setSettingsProject(currentProject),
+                  },
+                ]
+              : []),
+            ...(workspaces.length > 0 && view.kind !== "dashboard"
+              ? [
+                  {
+                    label: "New project",
+                    icon: <FolderKanban size={14} />,
+                    onClick: () => {
+                      const ws = workspaces.find((w) => w.id === activeWs) ?? workspaces[0];
+                      if (ws) createProject(ws.id, "New project", "list");
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
 
       {settingsWs && (
         <WorkspaceSettings
