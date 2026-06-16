@@ -698,7 +698,6 @@ function ProjectNavItem({
     </div>
   );
 }
-}
 
 function NavItem({
   icon,
