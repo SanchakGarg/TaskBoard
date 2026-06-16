@@ -75,6 +75,23 @@ export const initDb = async () => {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES workspace_folders(id) ON DELETE SET NULL;
   `;
 
+  // Fix FK that may point to old 'folders' table instead of 'workspace_folders'
+  await sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'projects_folder_id_fkey'
+          AND confrelid = (SELECT oid FROM pg_class WHERE relname = 'folders')
+      ) THEN
+        ALTER TABLE projects DROP CONSTRAINT projects_folder_id_fkey;
+        ALTER TABLE projects ADD CONSTRAINT projects_folder_id_fkey
+          FOREIGN KEY (folder_id) REFERENCES workspace_folders(id) ON DELETE SET NULL;
+      END IF;
+    END
+    $$;
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS workspace_members (
       workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
