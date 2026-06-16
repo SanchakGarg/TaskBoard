@@ -77,6 +77,7 @@ export function Sidebar({
 
   // D&D handling for Sidebar
   const [draggedItem, setDraggedId] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
+  const [overItem, setOverItem] = useState<{ id: string; index: number } | null>(null);
 
   const handleDragStart = (e: React.DragEvent, kind: "project" | "folder", id: string) => {
     setDraggedId({ kind, id });
@@ -87,6 +88,7 @@ export function Sidebar({
 
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedId(null);
+    setOverItem(null);
     const target = e.currentTarget as HTMLElement;
     target.classList.remove("opacity-20");
   };
@@ -94,6 +96,7 @@ export function Sidebar({
   const handleDrop = async (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => {
     e.preventDefault();
     e.stopPropagation();
+    setOverItem(null);
     if (!draggedItem) return;
 
     if (draggedItem.kind === "project") {
@@ -215,6 +218,7 @@ export function Sidebar({
     <>
       <aside
         onContextMenu={(e) => {
+          // right-click on sidebar background → new workspace
           e.preventDefault();
           setMenu({
             x: e.clientX,
@@ -273,21 +277,26 @@ export function Sidebar({
             return (
               <div
                 key={ws.id}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => handleDrop(e, ws.id, null)}
                 className="mb-1"
               >
                 {!collapsed && (
                   <div
-                    className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
+                    className={`group/ws flex items-center gap-1 rounded-md px-1 py-1 transition-all ${overItem?.id === ws.id && overItem.index === -1 ? "bg-pen-blue/10 ring-2 ring-inset ring-pen-blue/40 shadow-sm" : ""}`}
                     onContextMenu={(e) => {
+                      // right-click a workspace → project creation, settings
                       e.preventDefault();
                       e.stopPropagation();
                       setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws) });
                     }}
+                    onDragOver={(e) => {
+                      if (draggedItem) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setOverItem({ id: ws.id, index: -1 });
+                      }
+                    }}
+                    onDragLeave={() => setOverItem(null)}
+                    onDrop={(e) => handleDrop(e, ws.id, null)}
                   >
                     <button
                       onClick={() => toggleWs(ws.id)}
@@ -300,15 +309,20 @@ export function Sidebar({
                       <FolderOpen size={14} className="shrink-0" />
                       <span className="truncate">{ws.name}</span>
                     </button>
-                    {ws.role === "admin" && (
-                      <button
-                        aria-label={`New project in ${ws.name}`}
-                        onClick={() => setCreatingIn({ workspaceId: ws.id })}
-                        className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    )}
+                    <button
+                      aria-label={`New project in ${ws.name}`}
+                      onClick={() => setCreatingIn({ workspaceId: ws.id })}
+                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <button
+                      aria-label={`Share ${ws.name}`}
+                      onClick={() => onOpenWorkspaceShare(ws)}
+                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
+                    >
+                      <Share2 size={13} />
+                    </button>
                     <button
                       aria-label={`Settings for ${ws.name}`}
                       onClick={() => onOpenSettings(ws)}
@@ -341,6 +355,8 @@ export function Sidebar({
                         handleDrop={handleDrop}
                         onOpenProjectShare={onOpenProjectShare}
                         onOpenProjectSettings={onOpenProjectSettings}
+                        overItem={overItem}
+                        setOverItem={setOverItem}
                       />
                     ))}
                     {wsProjects.map((p, idx) => (
@@ -357,6 +373,8 @@ export function Sidebar({
                         handleDragStart={handleDragStart}
                         handleDragEnd={handleDragEnd}
                         handleDrop={handleDrop}
+                        overItem={overItem}
+                        setOverItem={setOverItem}
                       />
                     ))}
                   </div>
@@ -524,6 +542,8 @@ function FolderTree({
   handleDrop,
   onOpenProjectShare,
   onOpenProjectSettings,
+  overItem,
+  setOverItem,
 }: {
   folder: Folder;
   index: number;
@@ -542,6 +562,8 @@ function FolderTree({
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
   onOpenProjectShare: (p: Project) => void;
   onOpenProjectSettings: (p: Project) => void;
+  overItem: { id: string; index: number } | null;
+  setOverItem: (item: { id: string; index: number } | null) => void;
 }) {
   const closed = closedFolders.has(folder.id);
   const subfolders = folders.filter((f) => f.parent_id === folder.id);
@@ -554,14 +576,24 @@ function FolderTree({
         e.preventDefault();
         e.stopPropagation();
       }}
-      onDrop={(e) => handleDrop(e, folder.workspace_id, folder.parent_id, index)}
+      onDrop={(e) => handleDrop(e, folder.workspace_id, folder.parent_id, index + 1)}
     >
       {!collapsed && (
         <div
           draggable
           onDragStart={(e) => handleDragStart(e, "folder", folder.id)}
           onDragEnd={handleDragEnd}
-          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-paper/40"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOverItem({ id: folder.id, index: -1 }); // index -1 means folder body
+          }}
+          onDragLeave={() => setOverItem(null)}
+          onDrop={(e) => {
+            e.stopPropagation();
+            handleDrop(e, folder.workspace_id, folder.id, 0);
+          }}
+          className={`group/folder flex items-center gap-1 rounded-md px-1 py-0.5 transition-all ${overItem?.id === folder.id && overItem.index === -1 ? "bg-pen-amber/10 ring-2 ring-inset ring-pen-amber/40 shadow-sm" : "hover:bg-paper/40"}`}
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -611,6 +643,8 @@ function FolderTree({
               handleDrop={handleDrop}
               onOpenProjectShare={onOpenProjectShare}
               onOpenProjectSettings={onOpenProjectSettings}
+              overItem={overItem}
+              setOverItem={setOverItem}
             />
           ))}
           {subprojects.map((p, idx) => (
@@ -627,6 +661,8 @@ function FolderTree({
               handleDragStart={handleDragStart}
               handleDragEnd={handleDragEnd}
               handleDrop={handleDrop}
+              overItem={overItem}
+              setOverItem={setOverItem}
             />
           ))}
         </div>
@@ -647,6 +683,8 @@ function ProjectNavItem({
   handleDragStart,
   handleDragEnd,
   handleDrop,
+  overItem,
+  setOverItem,
 }: {
   project: Project;
   index: number;
@@ -659,6 +697,8 @@ function ProjectNavItem({
   handleDragStart: (e: React.DragEvent, kind: "project" | "folder", id: string) => void;
   handleDragEnd: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
+  overItem: { id: string; index: number } | null;
+  setOverItem: (item: { id: string; index: number } | null) => void;
 }) {
   return (
     <div
@@ -668,9 +708,11 @@ function ProjectNavItem({
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        setOverItem({ id: project.id, index });
       }}
-      onDrop={(e) => handleDrop(e, project.workspace_id, project.folder_id, index)}
-      className="group/project relative"
+      onDragLeave={() => setOverItem(null)}
+      onDrop={(e) => handleDrop(e, project.workspace_id, project.folder_id, index + 1)}
+      className={`group/project relative transition-all rounded-lg ${overItem?.id === project.id ? "bg-pen-blue/10 ring-2 ring-inset ring-pen-blue/40 shadow-sm" : ""}`}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -701,6 +743,13 @@ function ProjectNavItem({
       />
       {!collapsed && (
         <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover/project:opacity-100">
+          <button
+            aria-label={`Share ${project.name}`}
+            onClick={() => onOpenProjectShare(project)}
+            className="anim-hover cursor-pointer rounded p-1 text-ink-soft hover:text-pen-blue"
+          >
+            <Share2 size={13} />
+          </button>
           <button
             aria-label={`Settings for ${project.name}`}
             onClick={() => onOpenProjectSettings(project)}
