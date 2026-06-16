@@ -313,7 +313,7 @@ apiRouter.post("/workspaces/:id/folders", async (req, res) => {
   const id = req.params.id;
   const u = user(req);
   if (!u || await getRole(u.id, id) !== "admin") return forbidden(res);
-  const name = str(req.body?.name, 100)?.trim();
+  const name = str(req.body?.name, 100)?.trim() ?? null;
   if (!name) return bad(res, "name required");
   const parentId = str(req.body?.parentId) || null;
 
@@ -342,7 +342,7 @@ apiRouter.patch("/folders/:id", async (req, res) => {
   const u = user(req);
   if (!u || await getRole(u.id, f.workspace_id) !== "admin") return forbidden(res);
   
-  const name = str(req.body?.name, 100)?.trim();
+  const name = str(req.body?.name, 100)?.trim() ?? null;
   const parentId = req.body?.parentId === undefined ? undefined : (str(req.body.parentId) || null);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
@@ -505,16 +505,17 @@ apiRouter.get("/projects", async (req, res) => {
 });
 
 apiRouter.post("/projects", async (req, res) => {
-  const name = str(req.body?.name, 200)?.trim();
+  const name = str(req.body?.name, 200)?.trim() ?? null;
   if (!name) return bad(res, "name required");
-  const workspaceId = req.body?.workspaceId;
+  const workspaceId = str(req.body?.workspaceId);
+  if (!workspaceId) return bad(res, "workspaceId required");
   const folderId = str(req.body?.folderId) || null;
   const u = user(req);
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
-  const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
   
   try {
+    const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
     const [project] = await sql<{ id: string }[]>`
       INSERT INTO projects (name, description, owner_id, workspace_id, folder_id, view_type, position)
       VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId}, ${viewType}, ${nextRow?.p ?? 0})
@@ -559,8 +560,8 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   const u = user(req);
   if (!u || await getRole(u.id, p.workspace_id) !== "admin") return forbidden(res);
   
-  const name = str(req.body?.name, 200)?.trim();
-  const workspaceId = str(req.body?.workspaceId);
+  const name = str(req.body?.name, 200)?.trim() ?? null;
+  const workspaceId = str(req.body?.workspaceId) ?? null;
   const folderId = req.body?.folderId === undefined ? undefined : (str(req.body.folderId) || null);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
@@ -945,8 +946,8 @@ apiRouter.delete("/columns/:id", async (req, res) => {
 // ---------- tasks ----------
 
 apiRouter.post("/tasks", async (req, res) => {
-  const columnId = req.body?.columnId;
-  const title = str(req.body?.title, 500)?.trim();
+  const columnId = str(req.body?.columnId);
+  const title = str(req.body?.title, 500)?.trim() ?? null;
   if (!title) return bad(res, "title required");
 
   let projectId: string | null = null;
