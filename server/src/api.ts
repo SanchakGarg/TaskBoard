@@ -33,6 +33,14 @@ const progressValue = (v: unknown, fallback = 0): number => {
   return Math.max(0, Math.min(100, Math.round(n)));
 };
 
+const toUUID = (v: unknown): string | null => {
+  if (typeof v !== "string") return null;
+  const s = v.trim().toLowerCase();
+  if (s === "" || s === "null" || s === "undefined") return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) return s;
+  return null;
+};
+
 // ---------- roles ----------
 
 export type Role = "read" | "checker" | "write" | "admin";
@@ -315,7 +323,7 @@ apiRouter.post("/workspaces/:id/folders", async (req, res) => {
   if (!u || await getRole(u.id, id) !== "admin") return forbidden(res);
   const name = str(req.body?.name, 100)?.trim() ?? null;
   if (!name) return bad(res, "name required");
-  const parentId = str(req.body?.parentId) || null;
+  const parentId = toUUID(req.body?.parentId);
 
   try {
     const [nextRow] = await sql<{ p: number }[]>`
@@ -343,7 +351,7 @@ apiRouter.patch("/folders/:id", async (req, res) => {
   if (!u || await getRole(u.id, f.workspace_id) !== "admin") return forbidden(res);
   
   const name = str(req.body?.name, 100)?.trim() ?? null;
-  const parentId = req.body?.parentId === undefined ? undefined : (str(req.body.parentId) || null);
+  const parentId = req.body?.parentId === undefined ? undefined : toUUID(req.body.parentId);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
   const updates: any = {};
@@ -507,9 +515,9 @@ apiRouter.get("/projects", async (req, res) => {
 apiRouter.post("/projects", async (req, res) => {
   const name = str(req.body?.name, 200)?.trim() ?? null;
   if (!name) return bad(res, "name required");
-  const workspaceId = str(req.body?.workspaceId);
+  const workspaceId = toUUID(req.body?.workspaceId);
   if (!workspaceId) return bad(res, "workspaceId required");
-  const folderId = str(req.body?.folderId) || null;
+  const folderId = toUUID(req.body?.folderId);
   const u = user(req);
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
@@ -561,8 +569,8 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   if (!u || await getRole(u.id, p.workspace_id) !== "admin") return forbidden(res);
   
   const name = str(req.body?.name, 200)?.trim() ?? null;
-  const workspaceId = str(req.body?.workspaceId) ?? null;
-  const folderId = req.body?.folderId === undefined ? undefined : (str(req.body.folderId) || null);
+  const workspaceId = toUUID(req.body?.workspaceId);
+  const folderId = req.body?.folderId === undefined ? undefined : toUUID(req.body.folderId);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
   const updates: any = {};
@@ -577,6 +585,14 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   }
 
   try {
+    // If moving to a folder, verify it exists and belongs to the correct workspace
+    if (updates.folder_id) {
+      const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${updates.folder_id}`;
+      if (!folder) return bad(res, "target folder does not exist");
+      const targetWs = updates.workspace_id || p.workspace_id;
+      if (folder.workspace_id !== targetWs) return bad(res, "folder does not belong to target workspace");
+    }
+
     const [row] = await sql`
       UPDATE projects 
       SET ${sql(updates)}
