@@ -315,20 +315,25 @@ apiRouter.post("/workspaces/:id/folders", async (req, res) => {
   if (!u || await getRole(u.id, id) !== "admin") return forbidden(res);
   const name = str(req.body?.name, 100)?.trim();
   if (!name) return bad(res, "name required");
-  const parentId = str(req.body?.parentId);
-  
-  const [nextRow] = await sql<{ p: number }[]>`
-    SELECT COALESCE(MAX(position) + 1, 0) AS p 
-    FROM workspace_folders 
-    WHERE workspace_id = ${id} AND (parent_id = ${parentId ?? null} OR (parent_id IS NULL AND ${parentId ?? null} IS NULL))
-  `;
-  
-  const [folder] = await sql`
-    INSERT INTO workspace_folders (name, workspace_id, parent_id, position) 
-    VALUES (${name}, ${id}, ${parentId ?? null}, ${nextRow?.p ?? 0}) 
-    RETURNING *
-  `;
-  res.status(201).json(folder);
+  const parentId = str(req.body?.parentId) || null;
+
+  try {
+    const [nextRow] = await sql<{ p: number }[]>`
+      SELECT COALESCE(MAX(position) + 1, 0) AS p
+      FROM workspace_folders
+      WHERE workspace_id = ${id} AND (parent_id IS NOT DISTINCT FROM ${parentId}::uuid)
+    `;
+
+    const [folder] = await sql`
+      INSERT INTO workspace_folders (name, workspace_id, parent_id, position)
+      VALUES (${name}, ${id}, ${parentId}::uuid, ${nextRow?.p ?? 0})
+      RETURNING *
+    `;
+    res.status(201).json(folder);
+  } catch (err: any) {
+    console.error("Failed to create folder:", err);
+    res.status(500).json({ error: err.message || "Failed to create folder" });
+  }
 });
 
 apiRouter.patch("/folders/:id", async (req, res) => {
@@ -341,11 +346,11 @@ apiRouter.patch("/folders/:id", async (req, res) => {
   const parentId = req.body?.parentId === undefined ? undefined : str(req.body.parentId);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
-  const [row] = await sql`
+  const [row] = await (sql as any)`
     UPDATE workspace_folders 
     SET 
       name = COALESCE(${name ?? null}, name),
-      parent_id = ${parentId === undefined ? sql`parent_id` : (parentId ?? null)},
+      parent_id = ${parentId === undefined ? sql`parent_id` : sql`${parentId}::uuid`},
       position = COALESCE(${position ?? null}, position)
     WHERE id = ${req.params.id} 
     RETURNING *
@@ -491,14 +496,14 @@ apiRouter.post("/projects", async (req, res) => {
   const name = str(req.body?.name, 200)?.trim();
   if (!name) return bad(res, "name required");
   const workspaceId = req.body?.workspaceId;
-  const folderId = str(req.body?.folderId);
+  const folderId = str(req.body?.folderId) || null;
   const u = user(req);
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
   const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
-  const [project] = await sql<{ id: string }[]>`
+  const [project] = await (sql as any)`
     INSERT INTO projects (name, description, owner_id, workspace_id, folder_id, view_type, position)
-    VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId ?? null}, ${viewType}, ${nextRow?.p ?? 0})
+    VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId}::uuid, ${viewType}, ${nextRow?.p ?? 0})
     RETURNING *
   `;
   const defaults: [string, number][] =
@@ -538,15 +543,15 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   
   const name = str(req.body?.name, 200)?.trim();
   const workspaceId = str(req.body?.workspaceId);
-  const folderId = req.body?.folderId === undefined ? undefined : str(req.body.folderId);
+  const folderId = req.body?.folderId === undefined ? undefined : (str(req.body.folderId) || null);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
-  const [row] = await sql`
+  const [row] = await (sql as any)`
     UPDATE projects 
     SET 
       name = COALESCE(${name ?? null}, name),
       workspace_id = COALESCE(${workspaceId ?? null}, workspace_id),
-      folder_id = ${folderId === undefined ? sql`folder_id` : (folderId ?? null)},
+      folder_id = ${folderId === undefined ? sql`folder_id` : sql`${folderId}::uuid`},
       position = COALESCE(${position ?? null}, position)
     WHERE id = ${id} 
     RETURNING *
