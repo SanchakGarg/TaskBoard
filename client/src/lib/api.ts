@@ -31,13 +31,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       throw new ApiError(401, "unauthorized");
     }
     
-    let message = "Something went wrong. Please try again later.";
-    try {
-      const body = await res.clone().json();
-      if (typeof body?.error === "string") message = body.error;
-    } catch { /* ignore parse errors */ }
-
-    console.error(`API Error ${res.status}:`, message);
+    const message = "Something went wrong. Please try again later.";
+    console.error(`API Error ${res.status}`);
     showToast(message, "error");
     throw new ApiError(res.status, message);
   }
