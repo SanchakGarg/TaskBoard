@@ -9,6 +9,7 @@ import {
   type Role,
   type TagDef,
   type Task,
+  type Priority,
 } from "../../lib/types";
 import { useBoardDrag } from "../../hooks/useDrag";
 import { Button, ContextMenu, Input, Tooltip, useConfirm, type ContextMenuItem } from "../ui";
