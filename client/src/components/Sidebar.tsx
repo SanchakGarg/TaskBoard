@@ -75,6 +75,36 @@ export function Sidebar({
   const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
 
+  // D&D handling for Sidebar
+  const [draggedItem, setDraggedId] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, kind: "project" | "folder", id: string) => {
+    setDraggedId({ kind, id });
+    const target = e.currentTarget as HTMLElement;
+    setTimeout(() => target.classList.add("opacity-20"), 0);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedId(null);
+    const target = e.currentTarget as HTMLElement;
+    target.classList.remove("opacity-20");
+  };
+
+  const handleDrop = async (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedItem) return;
+
+    if (draggedItem.kind === "project") {
+      await onMoveProject(draggedItem.id, workspaceId, folderId, atIndex ?? 0);
+    } else if (draggedItem.kind === "folder") {
+      if (draggedItem.id === folderId) return;
+      await onMoveFolder(draggedItem.id, folderId, atIndex ?? 0);
+    }
+    setDraggedId(null);
+  };
+
   const workspaceMenu = (ws: Workspace): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     if (ws.role === "admin") {
@@ -181,33 +211,10 @@ export function Sidebar({
       return next;
     });
 
-  // D&D handling for Sidebar
-  const [dragging, setDragging] = useState<{ kind: "project" | "folder"; id: string } | null>(null);
-
-  const handleDragStart = (kind: "project" | "folder", id: string) => {
-    setDragging({ kind, id });
-  };
-
-  const handleDrop = async (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!dragging) return;
-
-    if (dragging.kind === "project") {
-      await onMoveProject(dragging.id, workspaceId, folderId, atIndex ?? 0);
-    } else if (dragging.kind === "folder") {
-      // Don't allow moving a folder into itself or its descendants
-      if (dragging.id === folderId) return;
-      await onMoveFolder(dragging.id, folderId, atIndex ?? 0);
-    }
-    setDragging(null);
-  };
-
   return (
     <>
       <aside
         onContextMenu={(e) => {
-          // right-click on sidebar background → new workspace
           e.preventDefault();
           setMenu({
             x: e.clientX,
@@ -277,7 +284,6 @@ export function Sidebar({
                   <div
                     className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
                     onContextMenu={(e) => {
-                      // right-click a workspace → project creation, settings
                       e.preventDefault();
                       e.stopPropagation();
                       setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws) });
@@ -331,6 +337,7 @@ export function Sidebar({
                         folderMenu={folderMenu}
                         wsRole={ws.role}
                         handleDragStart={handleDragStart}
+                        handleDragEnd={handleDragEnd}
                         handleDrop={handleDrop}
                         onOpenProjectShare={onOpenProjectShare}
                         onOpenProjectSettings={onOpenProjectSettings}
@@ -348,6 +355,7 @@ export function Sidebar({
                         onOpenProjectShare={onOpenProjectShare}
                         onOpenProjectSettings={onOpenProjectSettings}
                         handleDragStart={handleDragStart}
+                        handleDragEnd={handleDragEnd}
                         handleDrop={handleDrop}
                       />
                     ))}
@@ -512,6 +520,7 @@ function FolderTree({
   folderMenu,
   wsRole,
   handleDragStart,
+  handleDragEnd,
   handleDrop,
   onOpenProjectShare,
   onOpenProjectSettings,
@@ -528,7 +537,8 @@ function FolderTree({
   setMenu: (m: any) => void;
   folderMenu: (f: Folder, r: string) => ContextMenuItem[];
   wsRole: string;
-  handleDragStart: (kind: "project" | "folder", id: string) => void;
+  handleDragStart: (e: React.DragEvent, kind: "project" | "folder", id: string) => void;
+  handleDragEnd: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
   onOpenProjectShare: (p: Project) => void;
   onOpenProjectSettings: (p: Project) => void;
@@ -549,8 +559,9 @@ function FolderTree({
       {!collapsed && (
         <div
           draggable
-          onDragStart={() => handleDragStart("folder", folder.id)}
-          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5"
+          onDragStart={(e) => handleDragStart(e, "folder", folder.id)}
+          onDragEnd={handleDragEnd}
+          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-paper/40"
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -596,6 +607,7 @@ function FolderTree({
               folderMenu={folderMenu}
               wsRole={wsRole}
               handleDragStart={handleDragStart}
+              handleDragEnd={handleDragEnd}
               handleDrop={handleDrop}
               onOpenProjectShare={onOpenProjectShare}
               onOpenProjectSettings={onOpenProjectSettings}
@@ -613,6 +625,7 @@ function FolderTree({
               onOpenProjectShare={onOpenProjectShare}
               onOpenProjectSettings={onOpenProjectSettings}
               handleDragStart={handleDragStart}
+              handleDragEnd={handleDragEnd}
               handleDrop={handleDrop}
             />
           ))}
@@ -621,6 +634,7 @@ function FolderTree({
     </div>
   );
 }
+
 function ProjectNavItem({
   project,
   index,
@@ -631,6 +645,7 @@ function ProjectNavItem({
   onOpenProjectShare,
   onOpenProjectSettings,
   handleDragStart,
+  handleDragEnd,
   handleDrop,
 }: {
   project: Project;
@@ -641,13 +656,15 @@ function ProjectNavItem({
   setMenu: (m: any) => void;
   onOpenProjectShare: (p: Project) => void;
   onOpenProjectSettings: (p: Project) => void;
-  handleDragStart: (kind: "project" | "folder", id: string) => void;
+  handleDragStart: (e: React.DragEvent, kind: "project" | "folder", id: string) => void;
+  handleDragEnd: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
 }) {
   return (
     <div
       draggable
-      onDragStart={() => handleDragStart("project", project.id)}
+      onDragStart={(e) => handleDragStart(e, "project", project.id)}
+      onDragEnd={handleDragEnd}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();

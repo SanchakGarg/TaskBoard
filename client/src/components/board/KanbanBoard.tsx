@@ -155,7 +155,11 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
     [columns, projectId, load]
   );
 
-  const { dragging, overColumn, overColumnEdge, dragProps, columnDragProps, dropProps } = useBoardDrag(moveTask, moveColumn);
+  const { dragging, overColumn, overColumnEdge, columnOrder, dragProps, columnDragProps, dropProps } = useBoardDrag(moveTask, moveColumn);
+
+  const displayColumns = columnOrder.length > 0 
+    ? columnOrder.map(id => columns.find(c => c.id === id)!).filter(Boolean)
+    : columns;
 
   const matches = (t: Task) => {
     const q = search.trim().toLowerCase();
@@ -278,7 +282,7 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
       </div>
 
       <div className="flex flex-1 gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-5">
-        {columns.map((col, idx) => {
+        {displayColumns.map((col, idx) => {
           const colTasks = tasks
             .filter((t) => t.column_id === col.id && matches(t))
             .sort((a, b) => a.position - b.position);
@@ -291,10 +295,10 @@ export function KanbanBoard({ projectId, role, publicData }: KanbanBoardProps) {
                 e.preventDefault();
                 setColMenu({ x: e.clientX, y: e.clientY, columnId: col.id });
               }}
-              className={`flex h-fit max-h-full w-[82vw] shrink-0 flex-col rounded-xl border-2 p-3 sm:w-72 ${col.is_done ? "border-pen-green/50 bg-pen-green/5" : "border-ink/30 bg-paper-dark/50"} ${overColumn === col.id && dragging?.taskId ? "drop-target" : ""} ${overColumnEdge === col.id && dragging?.columnId ? "border-pen-blue border-dashed" : ""}`}
+              className={`flex h-fit max-h-full w-[82vw] shrink-0 flex-col rounded-xl border-2 p-3 sm:w-72 ${col.is_done ? "border-pen-green/50 bg-pen-green/5" : "border-ink/30 bg-paper-dark/50"} ${overColumn === col.id && dragging?.taskId ? "drop-target" : ""} ${overColumnEdge === col.id && dragging?.columnId ? "border-pen-blue border-dashed opacity-50" : ""}`}
             >
               <header 
-                {...(canWrite ? columnDragProps(col.id) : {})}
+                {...(canWrite ? columnDragProps(col.id, displayColumns.map(c => c.id)) : {})}
                 className="group/col mb-3 flex items-center gap-1 cursor-grab active:cursor-grabbing"
               >
                 {renamingColumn === col.id ? (
