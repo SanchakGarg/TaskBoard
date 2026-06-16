@@ -153,14 +153,19 @@ authRouter.get("/:provider/login", async (req, res) => {
       ? "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file" 
       : "openid email profile";
     
+    const extraParams: Record<string, string> = {};
+    if (name === "google") {
+      extraParams.access_type = "offline";
+      if (config.sheetsSyncEnabled) extraParams.prompt = "consent";
+    }
+
     const url = oidc.buildAuthorizationUrl(provider, {
       redirect_uri: `${config.appUrl}/api/auth/${name}/callback`,
       scope: name === "google" ? googleScopes : "openid email profile",
-      prompt: (name === "google" && config.sheetsSyncEnabled) ? "consent" : undefined,
-      access_type: (name === "google") ? "offline" : undefined,
       state,
       code_challenge: challenge,
       code_challenge_method: "S256",
+      ...extraParams,
     } as any);
     const flow = jwt.sign({ codeVerifier, state, provider: name }, config.jwtSecret, {
       expiresIn: "10m",
