@@ -321,12 +321,12 @@ apiRouter.post("/workspaces/:id/folders", async (req, res) => {
     const [nextRow] = await sql<{ p: number }[]>`
       SELECT COALESCE(MAX(position) + 1, 0) AS p
       FROM workspace_folders
-      WHERE workspace_id = ${id} AND (parent_id IS NOT DISTINCT FROM ${parentId}::uuid)
+      WHERE workspace_id = ${id} AND (parent_id IS NOT DISTINCT FROM ${parentId})
     `;
 
     const [folder] = await sql`
       INSERT INTO workspace_folders (name, workspace_id, parent_id, position)
-      VALUES (${name}, ${id}, ${parentId}::uuid, ${nextRow?.p ?? 0})
+      VALUES (${name}, ${id}, ${parentId}, ${nextRow?.p ?? 0})
       RETURNING *
     `;
     res.status(201).json(folder);
@@ -337,25 +337,37 @@ apiRouter.post("/workspaces/:id/folders", async (req, res) => {
 });
 
 apiRouter.patch("/folders/:id", async (req, res) => {
-  const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${req.params.id}`;
-  if (!folder) return notFound(res);
+  const [f] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${req.params.id}`;
+  if (!f) return notFound(res);
   const u = user(req);
-  if (!u || await getRole(u.id, folder.workspace_id) !== "admin") return forbidden(res);
+  if (!u || await getRole(u.id, f.workspace_id) !== "admin") return forbidden(res);
   
   const name = str(req.body?.name, 100)?.trim();
-  const parentId = req.body?.parentId === undefined ? undefined : str(req.body.parentId);
+  const parentId = req.body?.parentId === undefined ? undefined : (str(req.body.parentId) || null);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
-  const [row] = await (sql as any)`
-    UPDATE workspace_folders 
-    SET 
-      name = COALESCE(${name ?? null}, name),
-      parent_id = ${parentId === undefined ? sql`parent_id` : sql`${parentId}::uuid`},
-      position = COALESCE(${position ?? null}, position)
-    WHERE id = ${req.params.id} 
-    RETURNING *
-  `;
-  res.json(row);
+  const updates: any = {};
+  if (name !== null) updates.name = name;
+  if (parentId !== undefined) updates.parent_id = parentId;
+  if (position !== undefined) updates.position = position;
+
+  if (Object.keys(updates).length === 0) {
+    const [existing] = await sql`SELECT * FROM workspace_folders WHERE id = ${req.params.id}`;
+    return res.json(existing);
+  }
+
+  try {
+    const [row] = await sql`
+      UPDATE workspace_folders 
+      SET ${sql(updates)}
+      WHERE id = ${req.params.id} 
+      RETURNING *
+    `;
+    res.json(row);
+  } catch (err: any) {
+    console.error("Failed to update folder:", err);
+    res.status(500).json({ error: err.message || "Failed to update folder" });
+  }
 });
 
 apiRouter.delete("/folders/:id", async (req, res) => {
@@ -501,21 +513,27 @@ apiRouter.post("/projects", async (req, res) => {
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
   const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
-  const [project] = await (sql as any)`
-    INSERT INTO projects (name, description, owner_id, workspace_id, folder_id, view_type, position)
-    VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId}::uuid, ${viewType}, ${nextRow?.p ?? 0})
-    RETURNING *
-  `;
-  const defaults: [string, number][] =
-    viewType === "list" ? [["Tasks", 0]] : [["Todo", 0], ["In Progress", 0], ["Done", 1]];
-  for (let i = 0; i < defaults.length; i++) {
-    const [colName, isDone] = defaults[i]!;
-    await sql`INSERT INTO columns (project_id, name, position, is_done) VALUES (${project!.id}, ${colName}, ${i}, ${isDone})`;
+  
+  try {
+    const [project] = await sql<{ id: string }[]>`
+      INSERT INTO projects (name, description, owner_id, workspace_id, folder_id, view_type, position)
+      VALUES (${name}, ${str(req.body?.description) ?? ""}, ${u.id}, ${workspaceId}, ${folderId}, ${viewType}, ${nextRow?.p ?? 0})
+      RETURNING *
+    `;
+    const defaults: [string, number][] =
+      viewType === "list" ? [["Tasks", 0]] : [["Todo", 0], ["In Progress", 0], ["Done", 1]];
+    for (let i = 0; i < defaults.length; i++) {
+      const [colName, isDone] = defaults[i]!;
+      await sql`INSERT INTO columns (project_id, name, position, is_done) VALUES (${project!.id}, ${colName}, ${i}, ${isDone})`;
+    }
+    await logActivity(u.id, project!.id, "created project", name);
+    // Creator is both the owner and a manager by default
+    await sql`INSERT INTO project_managers (project_id, user_id) VALUES (${project!.id}, ${u.id})`;
+    res.status(201).json(project);
+  } catch (err: any) {
+    console.error("Failed to create project:", err);
+    res.status(500).json({ error: err.message || "Failed to create project" });
   }
-  await logActivity(u.id, project!.id, "created project", name);
-  // Creator is both the owner and a manager by default
-  await sql`INSERT INTO project_managers (project_id, user_id) VALUES (${project!.id}, ${u.id})`;
-  res.status(201).json(project);
 });
 
 apiRouter.patch("/projects/reorder", async (req, res) => {
@@ -546,17 +564,29 @@ apiRouter.patch("/projects/:id", async (req, res) => {
   const folderId = req.body?.folderId === undefined ? undefined : (str(req.body.folderId) || null);
   const position = typeof req.body?.position === "number" ? req.body.position : undefined;
 
-  const [row] = await (sql as any)`
-    UPDATE projects 
-    SET 
-      name = COALESCE(${name ?? null}, name),
-      workspace_id = COALESCE(${workspaceId ?? null}, workspace_id),
-      folder_id = ${folderId === undefined ? sql`folder_id` : sql`${folderId}::uuid`},
-      position = COALESCE(${position ?? null}, position)
-    WHERE id = ${id} 
-    RETURNING *
-  `;
-  res.json(row);
+  const updates: any = {};
+  if (name !== null) updates.name = name;
+  if (workspaceId !== null) updates.workspace_id = workspaceId;
+  if (folderId !== undefined) updates.folder_id = folderId;
+  if (position !== undefined) updates.position = position;
+
+  if (Object.keys(updates).length === 0) {
+    const [existing] = await sql`SELECT * FROM projects WHERE id = ${id}`;
+    return res.json(existing);
+  }
+
+  try {
+    const [row] = await sql`
+      UPDATE projects 
+      SET ${sql(updates)}
+      WHERE id = ${id} 
+      RETURNING *
+    `;
+    res.json(row);
+  } catch (err: any) {
+    console.error("Failed to update project:", err);
+    res.status(500).json({ error: err.message || "Failed to update project" });
+  }
 });
 
 apiRouter.delete("/projects/:id", async (req, res) => {
