@@ -56,12 +56,6 @@ const PRIORITY_COLOR: Record<Task["priority"], string> = {
   medium: "bg-pen-blue",
   low: "bg-ink/20",
 };
-const PRIORITY_TEXT: Record<Task["priority"], string> = {
-  urgent: "text-pen-red",
-  high: "text-pen-amber",
-  medium: "text-pen-blue",
-  low: "text-ink-soft",
-};
 
 interface DueInfo {
   label: string;
@@ -153,8 +147,6 @@ export function MyTasksPage({ onNavigate }: MyTasksPageProps) {
   }, []);
 
   useEffect(load, [load]);
-
-  const projectOf = (t: Task) => projects.find((p) => p.id === t.project_id);
 
   const filtered = useMemo(() => {
     const t = todayStr();

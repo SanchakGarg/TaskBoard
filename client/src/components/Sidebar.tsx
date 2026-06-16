@@ -479,7 +479,7 @@ function DestinationFolderRow({
 
 function FolderTree({
   folder,
-  index,
+  index: _index,
   folders,
   projects,
   view,
