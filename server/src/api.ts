@@ -521,7 +521,13 @@ apiRouter.post("/projects", async (req, res) => {
   const u = user(req);
   if (!u || await getRole(u.id, workspaceId) !== "admin") return forbidden(res);
   const viewType = req.body?.viewType === "list" ? "list" : "kanban";
-  
+
+  if (folderId) {
+    const [folder] = await sql<{ workspace_id: string }[]>`SELECT workspace_id FROM workspace_folders WHERE id = ${folderId}`;
+    if (!folder) return bad(res, "target folder does not exist");
+    if (folder.workspace_id !== workspaceId) return bad(res, "folder does not belong to target workspace");
+  }
+
   try {
     const [nextRow] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM projects WHERE workspace_id = ${workspaceId}`;
     const [project] = await sql<{ id: string }[]>`
@@ -541,6 +547,7 @@ apiRouter.post("/projects", async (req, res) => {
     res.status(201).json(project);
   } catch (err: any) {
     console.error("Failed to create project:", err);
+    if (err?.code === "23503") return bad(res, "target folder does not exist");
     res.status(500).json({ error: err.message || "Failed to create project" });
   }
 });
@@ -602,6 +609,7 @@ apiRouter.patch("/projects/:id", async (req, res) => {
     res.json(row);
   } catch (err: any) {
     console.error("Failed to update project:", err);
+    if (err?.code === "23503") return bad(res, "target folder does not exist");
     res.status(500).json({ error: err.message || "Failed to update project" });
   }
 });
