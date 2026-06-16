@@ -63,9 +63,9 @@ export function Sidebar({
   collapsed,
   onToggle,
 }: SidebarProps) {
+  const [movingProject, setMovingProject] = useState<Project | null>(null);
   const [creatingIn, setCreatingIn] = useState<{ workspaceId: string; folderId?: string } | null>(null);
   const [creatingFolderIn, setCreatingFolderIn] = useState<{ workspaceId: string; parentId?: string } | null>(null);
-  const [movingProject, setMovingProject] = useState<Project | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<Folder | null>(null);
   const [creatingWs, setCreatingWs] = useState(false);
   const [name, setName] = useState("");
@@ -311,13 +311,15 @@ export function Sidebar({
                       <FolderOpen size={14} className="shrink-0" />
                       <span className="truncate">{ws.name}</span>
                     </button>
-                    <button
-                      aria-label={`New project in ${ws.name}`}
-                      onClick={() => setCreatingIn({ workspaceId: ws.id })}
-                      className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
-                    >
-                      <Plus size={14} />
-                    </button>
+                    {ws.role === "admin" && (
+                      <button
+                        aria-label={`New project in ${ws.name}`}
+                        onClick={() => setCreatingIn({ workspaceId: ws.id })}
+                        className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    )}
                     <button
                       aria-label={`Share ${ws.name}`}
                       onClick={() => onOpenWorkspaceShare(ws)}
@@ -357,6 +359,7 @@ export function Sidebar({
                         handleDrop={handleDrop}
                         onOpenProjectShare={onOpenProjectShare}
                         onOpenProjectSettings={onOpenProjectSettings}
+                        onMoveRequest={(p) => setMovingProject(p)}
                         overItem={overItem}
                         setOverItem={setOverItem}
                       />
@@ -372,6 +375,7 @@ export function Sidebar({
                         setMenu={setMenu}
                         onOpenProjectShare={onOpenProjectShare}
                         onOpenProjectSettings={onOpenProjectSettings}
+                        onMoveRequest={(p) => setMovingProject(p)}
                         handleDragStart={handleDragStart}
                         handleDragEnd={handleDragEnd}
                         handleDrop={handleDrop}
@@ -636,6 +640,7 @@ function FolderTree({
   handleDrop,
   onOpenProjectShare,
   onOpenProjectSettings,
+  onMoveRequest,
   overItem,
   setOverItem,
 }: {
@@ -656,6 +661,7 @@ function FolderTree({
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
   onOpenProjectShare: (p: Project) => void;
   onOpenProjectSettings: (p: Project) => void;
+  onMoveRequest: (p: Project) => void;
   overItem: { id: string; index: number } | null;
   setOverItem: (item: { id: string; index: number } | null) => void;
 }) {
@@ -737,6 +743,7 @@ function FolderTree({
               handleDrop={handleDrop}
               onOpenProjectShare={onOpenProjectShare}
               onOpenProjectSettings={onOpenProjectSettings}
+              onMoveRequest={onMoveRequest}
               overItem={overItem}
               setOverItem={setOverItem}
             />
@@ -752,6 +759,7 @@ function FolderTree({
               setMenu={setMenu}
               onOpenProjectShare={onOpenProjectShare}
               onOpenProjectSettings={onOpenProjectSettings}
+              onMoveRequest={onMoveRequest}
               handleDragStart={handleDragStart}
               handleDragEnd={handleDragEnd}
               handleDrop={handleDrop}
@@ -774,6 +782,7 @@ function ProjectNavItem({
   setMenu,
   onOpenProjectShare,
   onOpenProjectSettings,
+  onMoveRequest,
   handleDragStart,
   handleDragEnd,
   handleDrop,
@@ -788,6 +797,7 @@ function ProjectNavItem({
   setMenu: (m: any) => void;
   onOpenProjectShare: (p: Project) => void;
   onOpenProjectSettings: (p: Project) => void;
+  onMoveRequest: (p: Project) => void;
   handleDragStart: (e: React.DragEvent, kind: "project" | "folder", id: string) => void;
   handleDragEnd: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, workspaceId: string, folderId: string | null, atIndex?: number) => void;
@@ -822,7 +832,7 @@ function ProjectNavItem({
             {
               label: "Move project",
               icon: <ArrowRight size={14} />,
-              onClick: () => setMovingProject(project),
+              onClick: () => onMoveRequest(project),
             },
             {
               label: "Project settings",
