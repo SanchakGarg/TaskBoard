@@ -14,6 +14,7 @@ import {
   Folder as FolderIcon,
   Pencil,
   Trash2,
+  ArrowRight,
 } from "lucide-react";
 import { Button, ContextMenu, Divider, Input, Modal, Tooltip, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
@@ -64,6 +65,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [creatingIn, setCreatingIn] = useState<{ workspaceId: string; folderId?: string } | null>(null);
   const [creatingFolderIn, setCreatingFolderIn] = useState<{ workspaceId: string; parentId?: string } | null>(null);
+  const [movingProject, setMovingProject] = useState<Project | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<Folder | null>(null);
   const [creatingWs, setCreatingWs] = useState(false);
   const [name, setName] = useState("");
@@ -520,7 +522,99 @@ export function Sidebar({
           </Button>
         </form>
       </Modal>
+
+      <Modal open={movingProject !== null} onClose={() => setMovingProject(null)} title={`Move "${movingProject?.name}"`} wide>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-ink-soft">Select a destination workspace or folder:</p>
+          <div className="max-h-[60vh] overflow-y-auto rounded-lg border-2 border-ink/10 bg-paper-dark/5 p-2">
+            {workspaces.map((ws) => (
+              <DestinationTree
+                key={ws.id}
+                workspace={ws}
+                folders={folders}
+                onSelect={async (folderId) => {
+                  if (movingProject) {
+                    await onMoveProject(movingProject.id, ws.id, folderId, 0);
+                    setMovingProject(null);
+                  }
+                }}
+              />
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={() => setMovingProject(null)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
     </>
+  );
+}
+
+function DestinationTree({
+  workspace,
+  folders,
+  onSelect,
+}: {
+  workspace: Workspace;
+  folders: Folder[];
+  onSelect: (folderId: string | null) => void;
+}) {
+  const wsFolders = folders.filter((f) => f.workspace_id === workspace.id && !f.parent_id);
+
+  return (
+    <div className="mb-2">
+      <button
+        onClick={() => onSelect(null)}
+        className="anim-hover flex w-full items-center gap-2 rounded-md p-2 text-left text-sm font-bold hover:bg-paper"
+      >
+        <FolderOpen size={16} className="text-pen-blue" />
+        {workspace.name} (Root)
+      </button>
+      <div className="pl-4">
+        {wsFolders.map((f) => (
+          <DestinationFolder key={f.id} folder={f} folders={folders} onSelect={onSelect} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DestinationFolder({
+  folder,
+  folders,
+  onSelect,
+}: {
+  folder: Folder;
+  folders: Folder[];
+  onSelect: (folderId: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const subfolders = folders.filter((f) => f.parent_id === folder.id);
+
+  return (
+    <div>
+      <div className="flex items-center gap-1">
+        {subfolders.length > 0 && (
+          <button onClick={() => setOpen(!open)} className="p-1 text-ink-soft hover:text-ink">
+            <ChevronRight size={14} className={`transition-transform ${open ? "rotate-90" : ""}`} />
+          </button>
+        )}
+        <button
+          onClick={() => onSelect(folder.id)}
+          className="anim-hover flex flex-1 items-center gap-2 rounded-md p-1.5 text-left text-xs font-medium hover:bg-paper"
+        >
+          <FolderIcon size={14} className="text-pen-amber" />
+          {folder.name}
+        </button>
+      </div>
+      {open && subfolders.length > 0 && (
+        <div className="ml-4 border-l border-ink/10 pl-2">
+          {subfolders.map((f) => (
+            <DestinationFolder key={f.id} folder={f} folders={folders} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -724,6 +818,11 @@ function ProjectNavItem({
               label: "Share project",
               icon: <Share2 size={14} />,
               onClick: () => onOpenProjectShare(project),
+            },
+            {
+              label: "Move project",
+              icon: <ArrowRight size={14} />,
+              onClick: () => setMovingProject(project),
             },
             {
               label: "Project settings",
