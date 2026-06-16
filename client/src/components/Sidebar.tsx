@@ -656,7 +656,6 @@ function ProjectNavItem({
       onDrop={(e) => handleDrop(e, project.workspace_id, project.folder_id, index)}
       className="group/project relative"
       onContextMenu={(e) => {
-...
         e.preventDefault();
         e.stopPropagation();
         setMenu({
