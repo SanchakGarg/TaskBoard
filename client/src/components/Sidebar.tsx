@@ -515,6 +515,26 @@ function DestinationFolderRow({
 
 // ---------- Folder tree in sidebar ----------
 
+// Hand-drawn wavy underline for a folder section heading — mirrors the Divider aesthetic.
+function FolderRule() {
+  return (
+    <svg
+      viewBox="0 0 200 6"
+      preserveAspectRatio="none"
+      aria-hidden
+      className="pointer-events-none mt-0.5 h-1.5 w-full text-pen-amber/45"
+    >
+      <path
+        d="M0 3 Q 10 1, 20 3 T 40 3 T 60 3 T 80 3 T 100 3 T 120 3 T 140 3 T 160 3 T 180 3 T 200 3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function FolderTree({
   folder,
   index: _index,
@@ -569,7 +589,7 @@ function FolderTree({
 
   return (
     <div
-      className={`mb-0.5 rounded-md transition-colors ${isFolderOver ? "bg-pen-amber/10 ring-2 ring-pen-amber/40" : ""}`}
+      className={`mb-1 rounded-md transition-colors ${isFolderOver ? "bg-pen-amber/10 ring-2 ring-pen-amber/40" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -594,22 +614,38 @@ function FolderTree({
           onDragStart={(e) => handleDragStart(e, "folder", folder.id)}
           onDragEnd={handleDragEnd}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(folder, wsRole) }); }}
-          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-paper/40 transition-colors"
+          className="group/folder px-1 pt-1"
         >
-          <button
-            onClick={() => toggleFolder(folder.id)}
-            className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-xs font-medium text-ink-soft hover:text-ink"
-          >
-            <ChevronRight size={12} className={`shrink-0 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
-            <FolderIcon size={14} className="shrink-0 text-pen-amber/80" />
-            <span className="truncate">{folder.name}</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => toggleFolder(folder.id)}
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
+            >
+              <ChevronRight size={11} className={`shrink-0 text-ink-soft/60 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
+              {closed ? (
+                <FolderIcon size={14} className="shrink-0 text-pen-amber" />
+              ) : (
+                <FolderOpen size={14} className="shrink-0 text-pen-amber" />
+              )}
+              <span className="font-hand truncate text-sm font-bold text-ink">{folder.name}</span>
+            </button>
+            {wsRole === "admin" && (
+              <button
+                aria-label={`New project in ${folder.name}`}
+                onClick={(e) => { e.stopPropagation(); folderMenu(folder, wsRole)[0]?.onClick?.(); }}
+                className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-0 hover:bg-paper hover:text-ink group-hover/folder:opacity-100"
+              >
+                <Plus size={13} />
+              </button>
+            )}
+          </div>
+          <FolderRule />
         </div>
       )}
 
       {(!closed || collapsed) && (
         <div
-          className={!collapsed ? "pl-3 border-l border-ink/10 ml-1.5" : ""}
+          className={!collapsed ? "ml-3 border-l border-ink/15 pl-2" : ""}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => handleDrop(e, folder.workspace_id, folder.id)}
         >
