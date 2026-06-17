@@ -570,7 +570,7 @@ function FolderTree({
 
   return (
     <div
-      className={`mb-0.5 rounded-md transition-colors ${isFolderOver ? "bg-pen-blue/5 ring-2 ring-pen-blue/40" : ""}`}
+      className={`mb-1 rounded-lg p-1 transition-colors ${isFolderOver ? "bg-pen-blue/10 ring-2 ring-pen-blue/40" : "bg-ink/[0.05]"}`}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -595,26 +595,26 @@ function FolderTree({
           onDragStart={(e) => handleDragStart(e, "folder", folder.id)}
           onDragEnd={handleDragEnd}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(folder, wsRole) }); }}
-          className="group/folder flex items-center gap-1 py-0.5"
+          className="group/folder flex items-center gap-1 px-1 py-0.5"
         >
-          {/* soft neutral pill — hugs its content, recedes behind project names */}
+          {/* folder heading — the whole folder panel carries the tint, header is just the label */}
           <button
             onClick={() => toggleFolder(folder.id)}
-            className="anim-hover flex min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-ink/[0.06] py-1 pl-2 pr-2.5 text-left transition-colors hover:bg-ink/10"
+            className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left text-ink-soft hover:text-ink"
           >
             <ChevronRight size={11} className={`shrink-0 text-ink-soft/60 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
             {closed ? (
-              <FolderIcon size={13} className="shrink-0 text-ink-soft" />
+              <FolderIcon size={13} className="shrink-0" />
             ) : (
-              <FolderOpen size={13} className="shrink-0 text-ink-soft" />
+              <FolderOpen size={13} className="shrink-0" />
             )}
-            <span className="truncate text-xs font-semibold text-ink-soft">{folder.name}</span>
+            <span className="truncate text-xs font-semibold">{folder.name}</span>
           </button>
           {wsRole === "admin" && (
             <button
               aria-label={`New project in ${folder.name}`}
               onClick={(e) => { e.stopPropagation(); folderMenu(folder, wsRole)[0]?.onClick?.(); }}
-              className="anim-hover ml-auto shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-0 hover:bg-paper hover:text-ink group-hover/folder:opacity-100"
+              className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-0 hover:bg-paper hover:text-ink group-hover/folder:opacity-100"
             >
               <Plus size={13} />
             </button>
@@ -624,7 +624,7 @@ function FolderTree({
 
       {(!closed || collapsed) && (
         <div
-          className={!collapsed ? "ml-3 border-l border-ink/15 pl-2" : ""}
+          className={!collapsed ? "pl-1.5" : ""}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => handleDrop(e, folder.workspace_id, folder.id)}
         >
