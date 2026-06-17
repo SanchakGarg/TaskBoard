@@ -17,7 +17,7 @@ import {
   ArrowRight,
   Check,
 } from "lucide-react";
-import { Button, ContextMenu, Input, Modal, Tooltip, type ContextMenuItem } from "./ui";
+import { Button, ContextMenu, Divider, Input, Modal, Tooltip, type ContextMenuItem } from "./ui";
 import { Notebook } from "../illustrations";
 import type { Project, Workspace, View, Folder } from "../lib/types";
 
@@ -235,7 +235,7 @@ export function Sidebar({
           <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" collapsed={collapsed} active={view.kind === "dashboard"} onClick={() => onNavigate({ kind: "dashboard" })} />
         </nav>
 
-        {!collapsed && <div className="mx-3 my-2 flex items-center gap-2"><div className="h-px flex-1 bg-ink/10" /><span className="font-hand text-[10px] font-semibold uppercase tracking-widest text-ink-soft/60">spaces</span><div className="h-px flex-1 bg-ink/10" /></div>}
+        {!collapsed && <Divider label="workspaces" className="mx-3 my-3" />}
 
         <div className="flex-1 overflow-y-auto px-2">
           {workspaces.map((ws) => {
@@ -247,7 +247,7 @@ export function Sidebar({
             return (
               <div
                 key={ws.id}
-                className={`mb-2 rounded-xl transition-colors ${wsIsOver ? "ring-2 ring-pen-blue/40" : ""}`}
+                className={`mb-1 rounded-md transition-colors ${wsIsOver ? "bg-pen-blue/10 ring-2 ring-pen-blue/40" : ""}`}
                 onDragLeave={(e) => {
                   if (wsIsOver) {
                     const rt = e.relatedTarget;
@@ -260,7 +260,7 @@ export function Sidebar({
               >
                 {!collapsed && (
                   <div
-                    className="group/ws mb-1"
+                    className="group/ws flex items-center gap-1 rounded-md px-1 py-1"
                     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: workspaceMenu(ws) }); }}
                     onDragOver={(e) => {
                       if (draggedItem) {
@@ -270,34 +270,30 @@ export function Sidebar({
                     }}
                     onDrop={(e) => handleDrop(e, ws.id, null)}
                   >
-                    <div className="flex items-center gap-1 rounded-xl border-2 border-ink/15 bg-paper-dark/50 px-2 py-1.5 transition-colors hover:bg-paper-dark/80">
-                      <button
-                        onClick={() => toggleWs(ws.id)}
-                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
-                      >
-                        <ChevronRight size={12} className={`shrink-0 text-ink-soft transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
-                        <FolderOpen size={14} className="shrink-0 text-pen-blue" />
-                        <span className="font-hand truncate text-sm font-bold">{ws.name}</span>
+                    <button
+                      onClick={() => toggleWs(ws.id)}
+                      className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-sm font-semibold text-ink-soft hover:text-ink"
+                    >
+                      <ChevronRight size={13} className={`shrink-0 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
+                      <FolderOpen size={14} className="shrink-0" />
+                      <span className="truncate">{ws.name}</span>
+                    </button>
+                    {ws.role === "admin" && (
+                      <button aria-label={`New project in ${ws.name}`} onClick={() => setCreatingIn({ workspaceId: ws.id })} className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100">
+                        <Plus size={14} />
                       </button>
-                      <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/ws:opacity-100">
-                        {ws.role === "admin" && (
-                          <button aria-label={`New project in ${ws.name}`} onClick={() => setCreatingIn({ workspaceId: ws.id })} className="anim-hover cursor-pointer rounded p-0.5 text-ink-soft hover:bg-paper hover:text-ink">
-                            <Plus size={13} />
-                          </button>
-                        )}
-                        <button aria-label={`Share ${ws.name}`} onClick={() => onOpenWorkspaceShare(ws)} className="anim-hover cursor-pointer rounded p-0.5 text-ink-soft hover:bg-paper hover:text-ink">
-                          <Share2 size={12} />
-                        </button>
-                        <button aria-label={`Settings for ${ws.name}`} onClick={() => onOpenSettings(ws)} className="anim-hover cursor-pointer rounded p-0.5 text-ink-soft hover:bg-paper hover:text-ink">
-                          <Settings size={12} />
-                        </button>
-                      </span>
-                    </div>
+                    )}
+                    <button aria-label={`Share ${ws.name}`} onClick={() => onOpenWorkspaceShare(ws)} className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100">
+                      <Share2 size={13} />
+                    </button>
+                    <button aria-label={`Settings for ${ws.name}`} onClick={() => onOpenSettings(ws)} className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-40 hover:bg-paper hover:text-ink group-hover/ws:opacity-100">
+                      <Settings size={13} />
+                    </button>
                   </div>
                 )}
 
                 {(!closed || collapsed) && (
-                  <div className={!collapsed ? "pl-1" : ""}>
+                  <div className={!collapsed ? "pl-2" : ""}>
                     {wsFolders.map((f, idx) => (
                       <FolderTree
                         key={f.id}
@@ -573,7 +569,7 @@ function FolderTree({
 
   return (
     <div
-      className={`mb-1 rounded-xl transition-colors ${isFolderOver ? "ring-2 ring-pen-amber/40" : ""}`}
+      className={`mb-0.5 rounded-md transition-colors ${isFolderOver ? "bg-pen-amber/10 ring-2 ring-pen-amber/40" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -598,23 +594,22 @@ function FolderTree({
           onDragStart={(e) => handleDragStart(e, "folder", folder.id)}
           onDragEnd={handleDragEnd}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(folder, wsRole) }); }}
-          className="group/folder relative overflow-hidden rounded-xl border-2 border-pen-amber/25 bg-pen-amber/10 transition-colors hover:bg-pen-amber/20"
+          className="group/folder flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-paper/40 transition-colors"
         >
-          <div className="absolute inset-y-0 left-0 w-1 rounded-l bg-pen-amber/60" />
           <button
             onClick={() => toggleFolder(folder.id)}
-            className="flex w-full cursor-pointer items-center gap-1.5 py-1.5 pl-3.5 pr-2 text-left"
+            className="anim-hover flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-xs font-medium text-ink-soft hover:text-ink"
           >
-            <ChevronRight size={11} className={`shrink-0 text-pen-amber/70 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
-            <FolderIcon size={13} className="shrink-0 text-pen-amber" />
-            <span className="font-hand flex-1 truncate text-xs font-semibold text-pen-amber">{folder.name}</span>
+            <ChevronRight size={12} className={`shrink-0 transition-transform duration-200 ${closed ? "" : "rotate-90"}`} />
+            <FolderIcon size={14} className="shrink-0 text-pen-amber/80" />
+            <span className="truncate">{folder.name}</span>
           </button>
         </div>
       )}
 
       {(!closed || collapsed) && (
         <div
-          className={!collapsed ? "ml-3 mt-0.5 border-l-2 border-pen-amber/20 pl-2" : ""}
+          className={!collapsed ? "pl-3 border-l border-ink/10 ml-1.5" : ""}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => handleDrop(e, folder.workspace_id, folder.id)}
         >
