@@ -624,7 +624,7 @@ function FolderTree({
 
       {(!closed || collapsed) && (
         <div
-          className={!collapsed ? "pl-1.5" : ""}
+          className={!collapsed ? "pl-1.5 bg-paper-dark rounded-md" : ""}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => handleDrop(e, folder.workspace_id, folder.id)}
         >
