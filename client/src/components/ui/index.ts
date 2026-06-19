@@ -13,3 +13,4 @@ export { ConfirmProvider, useConfirm } from "./Confirm";
 export { DatePicker } from "./DatePicker";
 export { Toggle } from "./Toggle";
 export { ToastProvider, useToast, showToast } from "./Toast";
+export { Confetti } from "./Confetti";

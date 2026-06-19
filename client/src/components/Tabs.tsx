@@ -69,7 +69,7 @@ export function Tabs({ projects, workspaceName, view, onNavigate, onReorder }: T
             setOverId(null);
           }}
           onClick={() => onNavigate({ kind: "board", projectId: p.id })}
-          className={`${base} ${(view.kind === "board" || view.kind === "milestones") && view.projectId === p.id ? active : inactive} ${dragId === p.id ? "dragging" : ""} ${overId === p.id && dragId !== null && dragId !== p.id ? "drop-target" : ""}`}
+          className={`${base} ${view.kind === "board" && view.projectId === p.id ? active : inactive} ${dragId === p.id ? "dragging" : ""} ${overId === p.id && dragId !== null && dragId !== p.id ? "drop-target" : ""}`}
         >
           {p.view_type === "list" ? <List size={15} /> : <KanbanSquare size={15} />}
           <span className="max-w-36 truncate">{p.name}</span>
