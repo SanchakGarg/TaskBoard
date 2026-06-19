@@ -1219,9 +1219,40 @@ apiRouter.patch("/milestones/:id", async (req, res) => {
   const [m] = await sql<{ project_id: string }[]>`SELECT project_id FROM milestones WHERE id = ${req.params.id}`;
   if (!m) return notFound(res);
   const role = await getProjectRole(req, m.project_id);
-  if (!atLeast(role, "checker")) return forbidden(res);
-  const [row] = await sql`UPDATE milestones SET done = ${req.body?.done ? 1 : 0} WHERE id = ${req.params.id} RETURNING *`;
+  const body = req.body ?? {};
+  // Editing content (title/date) needs write; merely ticking done needs checker.
+  const editsContent = body.title !== undefined || body.dueDate !== undefined;
+  if (editsContent) {
+    if (!atLeast(role, "write")) return forbidden(res);
+  } else {
+    if (!atLeast(role, "checker")) return forbidden(res);
+  }
+  const newDone = body.done !== undefined ? (body.done ? 1 : 0) : null;
+  const newTitle = body.title !== undefined ? str(body.title, 300)?.trim() || null : null;
+  if (body.title !== undefined && !newTitle) return bad(res, "title required");
+  const hasDue = body.dueDate !== undefined;
+  const dueVal = hasDue ? str(body.dueDate, 30) ?? null : null;
+  const [row] = await sql`
+    UPDATE milestones SET
+      done = COALESCE(${newDone}, done),
+      title = COALESCE(${newTitle}, title),
+      due_date = ${hasDue ? sql`${dueVal}::timestamp` : sql`due_date`}
+    WHERE id = ${req.params.id} RETURNING *`;
   res.json(row);
+});
+
+apiRouter.put("/projects/:id/milestones/reorder", async (req, res) => {
+  const projectId = req.params.id;
+  const ws = await projectWorkspace(projectId);
+  if (ws === null) return notFound(res);
+  if (!atLeast(await getProjectRole(req, projectId), "write")) return forbidden(res);
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string"))
+    return bad(res, "ids must be an array of strings");
+  for (let i = 0; i < ids.length; i++) {
+    await sql`UPDATE milestones SET position = ${i} WHERE id = ${ids[i]} AND project_id = ${projectId}`;
+  }
+  res.json({ ok: true });
 });
 
 apiRouter.delete("/milestones/:id", async (req, res) => {

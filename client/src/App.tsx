@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckSquare, FolderKanban, LayoutDashboard, Settings } from "lucide-react";
+import { CheckSquare, Flag, FolderKanban, LayoutDashboard, Settings } from "lucide-react";
 import { api, setPublicShareId } from "./lib/api";
 import type { Project, Workspace, View, Column, Task, Folder } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
@@ -9,6 +9,7 @@ import { TopBar } from "./components/TopBar";
 import { Dashboard } from "./components/widgets/Dashboard";
 import { KanbanBoard } from "./components/board/KanbanBoard";
 import { ListBoard } from "./components/board/ListBoard";
+import { MilestonesBoard } from "./components/board/MilestonesBoard";
 import { MyTasksPage } from "./components/MyTasksPage";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
@@ -149,7 +150,7 @@ export function App() {
   if (dataLoading && !hasLoadedOnce && !isPublic && !isPrivacy && !isAbout && !isTos) return <PageLoader />;
 
   const navigate = (v: View) => {
-    if (v.kind === "board") {
+    if (v.kind === "board" || v.kind === "milestones") {
       const ws = projects.find((p) => p.id === v.projectId)?.workspace_id;
       if (ws) setActiveWs(ws);
     }
@@ -204,7 +205,9 @@ export function App() {
   };
 
   const currentProject =
-    view.kind === "board" ? projects.find((p) => p.id === view.projectId) : undefined;
+    view.kind === "board" || view.kind === "milestones"
+      ? projects.find((p) => p.id === view.projectId)
+      : undefined;
   
   const currentRole = 
     view.kind === "public" ? publicData?.project.share_role ?? "read" :
@@ -311,11 +314,37 @@ export function App() {
               )
             ) : <PageLoader />
           ) : currentProject ? (
-            currentProject.view_type === "list" ? (
-              <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-            ) : (
-              <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-            )
+            <>
+              <div className="sticky top-0 z-20 flex items-center gap-1 border-b-2 border-ink/10 bg-paper/95 px-4 py-1.5 backdrop-blur">
+                <button
+                  onClick={() => navigate({ kind: "board", projectId: currentProject.id })}
+                  className={`anim-hover flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-sm ${
+                    view.kind === "board"
+                      ? "bg-ink font-semibold text-paper"
+                      : "text-ink-soft hover:bg-paper-dark hover:text-ink"
+                  }`}
+                >
+                  <LayoutDashboard size={14} /> Board
+                </button>
+                <button
+                  onClick={() => navigate({ kind: "milestones", projectId: currentProject.id })}
+                  className={`anim-hover flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-sm ${
+                    view.kind === "milestones"
+                      ? "bg-ink font-semibold text-paper"
+                      : "text-ink-soft hover:bg-paper-dark hover:text-ink"
+                  }`}
+                >
+                  <Flag size={14} /> Milestones
+                </button>
+              </div>
+              {view.kind === "milestones" ? (
+                <MilestonesBoard key={`m-${view.projectId}`} projectId={view.projectId} role={currentRole} />
+              ) : currentProject.view_type === "list" ? (
+                <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+              ) : (
+                <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+              )}
+            </>
           ) : null}
         </main>
       </div>

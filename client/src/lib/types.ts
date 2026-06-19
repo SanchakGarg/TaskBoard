@@ -124,6 +124,7 @@ export type View =
   | { kind: "mytasks" }
   | { kind: "dashboard" }
   | { kind: "board"; projectId: string }
+  | { kind: "milestones"; projectId: string }
   | { kind: "public"; shareId: string }
   | { kind: "privacy" }
   | { kind: "about" }
