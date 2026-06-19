@@ -114,7 +114,7 @@ export function MilestonesList({ projectId, role }: MilestonesListProps) {
 
   return (
     <section className="border-b-2 border-ink/10 bg-paper-dark/25 px-4 py-3 sm:px-6">
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="w-full max-w-2xl">
         {/* heading */}
         <button
           onClick={() => setCollapsed((c) => !c)}
