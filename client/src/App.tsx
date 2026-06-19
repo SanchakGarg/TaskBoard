@@ -9,7 +9,7 @@ import { TopBar } from "./components/TopBar";
 import { Dashboard } from "./components/widgets/Dashboard";
 import { KanbanBoard } from "./components/board/KanbanBoard";
 import { ListBoard } from "./components/board/ListBoard";
-import { MilestonesBar } from "./components/board/MilestonesBar";
+import { MilestonesList } from "./components/board/MilestonesList";
 import { MyTasksPage } from "./components/MyTasksPage";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
@@ -313,7 +313,7 @@ export function App() {
             ) : <PageLoader />
           ) : currentProject ? (
             <>
-              <MilestonesBar key={`mb-${view.projectId}`} projectId={view.projectId} role={currentRole} />
+              <MilestonesList key={`mb-${view.projectId}`} projectId={view.projectId} role={currentRole} />
               {currentProject.view_type === "list" ? (
                 <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
               ) : (
