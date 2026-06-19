@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import {
-  LayoutDashboard,
   ListChecks,
   KanbanSquare,
   List,
@@ -232,7 +231,6 @@ export function Sidebar({
 
         <nav className="flex flex-col gap-1 px-2">
           <NavItem icon={<ListChecks size={18} />} label="My Tasks" collapsed={collapsed} active={view.kind === "mytasks"} onClick={() => onNavigate({ kind: "mytasks" })} />
-          <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" collapsed={collapsed} active={view.kind === "dashboard"} onClick={() => onNavigate({ kind: "dashboard" })} />
         </nav>
 
         {!collapsed && <Divider label="workspaces" className="mx-3 my-3" />}

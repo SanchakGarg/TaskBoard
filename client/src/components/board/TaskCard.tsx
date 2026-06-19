@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, Flag, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import { Badge, priorityTone } from "../ui";
 import { formatIST, parseTags, type TagDef, type Task } from "../../lib/types";
 import { AvatarStack, TagBadge } from "./pickers";
@@ -63,6 +63,13 @@ export function TaskCard({
             />
           </div>
           <span className="text-xs font-semibold text-pen-blue">{task.progress}%</span>
+        </div>
+      )}
+
+      {(task.subtasks?.length ?? 0) > 0 && (
+        <div className="mt-2 flex items-center gap-1 text-xs text-ink-soft">
+          <ListChecks size={12} />
+          {task.subtasks!.filter((s) => s.done).length}/{task.subtasks!.length}
         </div>
       )}
 

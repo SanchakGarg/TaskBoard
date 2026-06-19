@@ -234,6 +234,36 @@ const withAssignees = async <T extends { id: string; external_assignees?: string
   });
 };
 
+interface SubtaskRow {
+  id: string;
+  task_id: string;
+  title: string;
+  done: number;
+  position: number;
+}
+
+const withSubtasks = async <T extends { id: string }>(tasks: T[]): Promise<(T & { subtasks: SubtaskRow[] })[]> => {
+  if (!tasks.length) return tasks.map((t) => ({ ...t, subtasks: [] }));
+  const rows = await sql<SubtaskRow[]>`SELECT * FROM subtasks WHERE task_id IN ${sql(tasks.map((t) => t.id))} ORDER BY position`;
+  const map = new Map<string, SubtaskRow[]>();
+  for (const r of rows) {
+    const list = map.get(r.task_id) ?? [];
+    list.push(r);
+    map.set(r.task_id, list);
+  }
+  return tasks.map((t) => ({ ...t, subtasks: map.get(t.id) ?? [] }));
+};
+
+// When a task has subtasks, its progress is derived from them (done / total).
+const recomputeTaskProgress = async (taskId: string): Promise<number | null> => {
+  const subs = await sql<{ done: number }[]>`SELECT done FROM subtasks WHERE task_id = ${taskId}`;
+  if (!subs.length) return null;
+  const done = subs.filter((s) => s.done).length;
+  const progress = Math.round((done / subs.length) * 100);
+  await sql`UPDATE tasks SET progress = ${progress}, updated_at = CURRENT_TIMESTAMP WHERE id = ${taskId}`;
+  return progress;
+};
+
 const emailsOf = async (userIds: string[]): Promise<string[]> => {
   if (!userIds.length) return [];
   const rows = await sql<{ email: string }[]>`SELECT email FROM users WHERE id IN ${sql(userIds)}`;
@@ -510,6 +540,40 @@ apiRouter.get("/projects", async (req, res) => {
     ORDER BY p.position, p.created_at
   `;
   res.json(rows);
+});
+
+// Global search across accessible projects + their tasks (for the ⌘K palette)
+apiRouter.get("/search", async (req, res) => {
+  const u = user(req);
+  if (!u) return forbidden(res);
+  const q = str(req.query?.q, 100)?.trim();
+  if (!q || q.length < 2) return res.json({ projects: [], tasks: [] });
+  const like = `%${q}%`;
+  const projects = await sql`
+    SELECT p.id, p.name, p.workspace_id
+    FROM projects p
+    JOIN workspaces w ON w.id = p.workspace_id
+    LEFT JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = ${u.id}
+    LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ${u.id}
+    WHERE (p.owner_id = ${u.id} OR w.owner_id = ${u.id} OR m.user_id IS NOT NULL OR pm.user_id IS NOT NULL)
+      AND p.name ILIKE ${like}
+    ORDER BY p.position, p.created_at
+    LIMIT 8
+  `;
+  const tasks = await sql`
+    SELECT DISTINCT t.id, t.title, t.completed_at, c.project_id, p.name AS project_name
+    FROM tasks t
+    JOIN columns c ON c.id = t.column_id
+    JOIN projects p ON p.id = c.project_id
+    JOIN workspaces w ON w.id = p.workspace_id
+    LEFT JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = ${u.id}
+    LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ${u.id}
+    WHERE (p.owner_id = ${u.id} OR w.owner_id = ${u.id} OR m.user_id IS NOT NULL OR pm.user_id IS NOT NULL)
+      AND (t.title ILIKE ${like} OR t.description ILIKE ${like})
+    ORDER BY t.completed_at NULLS FIRST
+    LIMIT 12
+  `;
+  res.json({ projects, tasks });
 });
 
 apiRouter.post("/projects", async (req, res) => {
@@ -889,7 +953,7 @@ apiRouter.get("/projects/:id/board", async (req, res) => {
   const tasks = columns.length
     ? await sql<Task[]>`SELECT * FROM tasks WHERE column_id IN ${sql(columns.map((c) => c.id))} ORDER BY position`
     : [];
-  res.json({ columns, tasks: await withAssignees(tasks), workspaceId: ws });
+  res.json({ columns, tasks: await withSubtasks(await withAssignees(tasks)), workspaceId: ws });
 });
 
 apiRouter.patch("/projects/:id/columns/reorder", async (req, res) => {
@@ -1048,7 +1112,7 @@ apiRouter.post("/tasks", async (req, res) => {
     await logActivity(creatorId, projectId, "created task", title);
     if (projectId) syncProjectToAllLinkedSheets(projectId);
   }
-  res.status(201).json(task ? (await withAssignees([task]))[0] : null);
+  res.status(201).json(task ? (await withSubtasks(await withAssignees([task])))[0] : null);
 });
 
 apiRouter.patch("/tasks/:id", async (req, res) => {
@@ -1113,7 +1177,7 @@ apiRouter.patch("/tasks/:id", async (req, res) => {
   
   if (existing.project_id) syncProjectToAllLinkedSheets(existing.project_id);
   
-  res.json(task ? (await withAssignees([task]))[0] : null);
+  res.json(task ? (await withSubtasks(await withAssignees([task])))[0] : null);
 });
 
 apiRouter.patch("/tasks/:id/move", async (req, res) => {
@@ -1188,7 +1252,63 @@ apiRouter.get("/tasks/mine", async (req, res) => {
     WHERE (t.column_id IS NULL AND t.created_by = ${u.id}) OR ta.user_id = ${u.id}
     ORDER BY t.due_date IS NULL, t.due_date
   `;
-  res.json(await withAssignees(rows));
+  res.json(await withSubtasks(await withAssignees(rows)));
+});
+
+// ---------- subtasks ----------
+
+apiRouter.post("/tasks/:taskId/subtasks", async (req, res) => {
+  const ctx = await taskCtx(req.params.taskId);
+  if (!ctx) return notFound(res);
+  if (!atLeast(await taskRole(req, ctx), "write")) return forbidden(res);
+  const title = str(req.body?.title, 300)?.trim();
+  if (!title) return bad(res, "title required");
+  const [next] = await sql<{ p: number }[]>`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM subtasks WHERE task_id = ${ctx.id}`;
+  const [row] = await sql<SubtaskRow[]>`
+    INSERT INTO subtasks (task_id, title, position)
+    VALUES (${ctx.id}, ${title}, ${next?.p ?? 0}) RETURNING *
+  `;
+  const progress = await recomputeTaskProgress(ctx.id);
+  if (ctx.project_id) syncProjectToAllLinkedSheets(ctx.project_id);
+  res.status(201).json({ subtask: row, progress });
+});
+
+apiRouter.patch("/subtasks/:id", async (req, res) => {
+  const [s] = await sql<{ task_id: string }[]>`SELECT task_id FROM subtasks WHERE id = ${req.params.id}`;
+  if (!s) return notFound(res);
+  const ctx = await taskCtx(s.task_id);
+  if (!ctx) return notFound(res);
+  const role = await taskRole(req, ctx);
+  const editsTitle = req.body?.title !== undefined;
+  if (editsTitle) {
+    if (!atLeast(role, "write")) return forbidden(res);
+  } else {
+    if (!atLeast(role, "checker")) return forbidden(res);
+  }
+  const newTitle = editsTitle ? str(req.body.title, 300)?.trim() || null : null;
+  if (editsTitle && !newTitle) return bad(res, "title required");
+  const newDone = req.body?.done !== undefined ? (req.body.done ? 1 : 0) : null;
+  const [row] = await sql<SubtaskRow[]>`
+    UPDATE subtasks SET
+      title = COALESCE(${newTitle}, title),
+      done = COALESCE(${newDone}, done)
+    WHERE id = ${req.params.id} RETURNING *
+  `;
+  const progress = await recomputeTaskProgress(ctx.id);
+  if (ctx.project_id) syncProjectToAllLinkedSheets(ctx.project_id);
+  res.json({ subtask: row, progress });
+});
+
+apiRouter.delete("/subtasks/:id", async (req, res) => {
+  const [s] = await sql<{ task_id: string }[]>`SELECT task_id FROM subtasks WHERE id = ${req.params.id}`;
+  if (!s) return notFound(res);
+  const ctx = await taskCtx(s.task_id);
+  if (!ctx) return notFound(res);
+  if (!atLeast(await taskRole(req, ctx), "write")) return forbidden(res);
+  await sql`DELETE FROM subtasks WHERE id = ${req.params.id}`;
+  const progress = await recomputeTaskProgress(ctx.id);
+  if (ctx.project_id) syncProjectToAllLinkedSheets(ctx.project_id);
+  res.json({ ok: true, progress });
 });
 
 // ---------- milestones ----------
@@ -1332,7 +1452,7 @@ publicApiRouter.get("/projects/:shareId", async (req, res) => {
     ? await sql<Task[]>`SELECT * FROM tasks WHERE column_id IN ${sql(columns.map((c) => c.id))} ORDER BY position`
     : [];
   
-  res.json({ project, columns, tasks: await withAssignees(tasks) });
+  res.json({ project, columns, tasks: await withSubtasks(await withAssignees(tasks)) });
 });
 
 apiRouter.get("/activity", async (req, res) => {

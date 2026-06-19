@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckSquare, FolderKanban, LayoutDashboard, Settings } from "lucide-react";
+import { CheckSquare, FolderKanban, Settings } from "lucide-react";
 import { api, setPublicShareId } from "./lib/api";
 import type { Project, Workspace, View, Column, Task, Folder } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { Dashboard } from "./components/widgets/Dashboard";
 import { KanbanBoard } from "./components/board/KanbanBoard";
 import { ListBoard } from "./components/board/ListBoard";
-import { MilestonesList } from "./components/board/MilestonesList";
 import { MyTasksPage } from "./components/MyTasksPage";
+import { CommandPalette } from "./components/CommandPalette";
 import { Tabs } from "./components/Tabs";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { ProjectSettings } from "./components/ProjectSettings";
@@ -33,7 +32,6 @@ const parseHash = (): View => {
   if (m) return { kind: "board", projectId: m[1] };
   const p = window.location.hash.match(/^#\/public\/([0-9a-f-]{36})$/);
   if (p) return { kind: "public", shareId: p[1] };
-  if (window.location.hash === "#/dashboard") return { kind: "dashboard" };
   return { kind: "mytasks" };
 };
 
@@ -80,6 +78,19 @@ export function App() {
   const [settingsUser, setSettingsUser] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ⌘K / Ctrl+K opens the command palette
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
@@ -214,11 +225,9 @@ export function App() {
   const title =
     view.kind === "mytasks"
       ? "My Tasks"
-      : view.kind === "dashboard"
-        ? "Dashboard"
-        : view.kind === "public"
-          ? publicData?.project.name ?? "Public Board"
-          : currentProject?.name ?? "Board";
+      : view.kind === "public"
+        ? publicData?.project.name ?? "Public Board"
+        : currentProject?.name ?? "Board";
 
   const tabProjects = projects.filter((p) => p.workspace_id === activeWs);
 
@@ -276,7 +285,7 @@ export function App() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {(!isPublic && !isPrivacy && !isAbout && !isTos) && <TopBar title={title} onMenuClick={() => setDrawerOpen(true)} />}
-        {(!isPublic && !isPrivacy && !isAbout && !isTos) && view.kind !== "dashboard" && (
+        {(!isPublic && !isPrivacy && !isAbout && !isTos) && (
           <Tabs
             projects={tabProjects}
             workspaceName={workspaces.find((w) => w.id === activeWs)?.name}
@@ -301,8 +310,6 @@ export function App() {
             <TermsOfService />
           ) : view.kind === "mytasks" ? (
             <MyTasksPage onNavigate={navigate} />
-          ) : view.kind === "dashboard" ? (
-            <Dashboard />
           ) : view.kind === "public" ? (
             publicData ? (
               publicData.project.view_type === "list" ? (
@@ -312,14 +319,11 @@ export function App() {
               )
             ) : <PageLoader />
           ) : currentProject ? (
-            <>
-              <MilestonesList key={`mb-${view.projectId}`} projectId={view.projectId} role={currentRole} />
-              {currentProject.view_type === "list" ? (
-                <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-              ) : (
-                <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
-              )}
-            </>
+            currentProject.view_type === "list" ? (
+              <ListBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+            ) : (
+              <KanbanBoard key={view.projectId} projectId={view.projectId} role={currentRole} />
+            )
           ) : null}
         </main>
       </div>
@@ -335,11 +339,6 @@ export function App() {
               icon: <CheckSquare size={14} />,
               onClick: () => navigate({ kind: "mytasks" }),
             },
-            {
-              label: "Dashboard",
-              icon: <LayoutDashboard size={14} />,
-              onClick: () => navigate({ kind: "dashboard" }),
-            },
             ...(currentProject
               ? [
                   {
@@ -349,7 +348,7 @@ export function App() {
                   },
                 ]
               : []),
-            ...(workspaces.length > 0 && view.kind !== "dashboard"
+            ...(workspaces.length > 0
               ? [
                   {
                     label: "New project",
@@ -401,6 +400,10 @@ export function App() {
       )}
       {settingsUser && (
         <UserSettings onClose={() => setSettingsUser(false)} />
+      )}
+
+      {user && !isPublic && !isPrivacy && !isAbout && !isTos && (
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNavigate={navigate} />
       )}
     </div>
   );

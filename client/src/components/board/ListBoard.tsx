@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Calendar, Pencil, Plus, Trash2 } from "lucide-react";
+import { Calendar, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import {
   atLeast,
@@ -210,13 +210,19 @@ export function ListBoard({ projectId, role, publicData }: ListBoardProps) {
           )}
 
           {/* meta row */}
-          {(taskTags.length > 0 || dueInfo || (t.assignees?.length ?? 0) > 0) && (
+          {(taskTags.length > 0 || dueInfo || (t.assignees?.length ?? 0) > 0 || (t.subtasks?.length ?? 0) > 0) && (
             <div className={`flex flex-wrap items-center gap-1.5 ${indent}`}>
               {taskTags.slice(0, 3).map((tag) => (
                 <TagBadge key={tag} name={tag} tags={tags} />
               ))}
               {taskTags.length > 3 && (
                 <span className="text-xs text-ink-soft">+{taskTags.length - 3}</span>
+              )}
+              {(t.subtasks?.length ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
+                  <ListChecks size={11} />
+                  {t.subtasks!.filter((s) => s.done).length}/{t.subtasks!.length}
+                </span>
               )}
               {dueInfo && (
                 <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${dueInfo.cls}`}>

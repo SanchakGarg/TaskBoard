@@ -79,6 +79,14 @@ export interface Column {
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
+export interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  done: number;
+  position: number;
+}
+
 export interface Task {
   id: string;
   column_id: string | null;
@@ -94,6 +102,7 @@ export interface Task {
   project_id?: string | null;
   external_assignees?: string;
   assignees?: Assignee[];
+  subtasks?: Subtask[];
 }
 
 export interface Milestone {
@@ -122,7 +131,6 @@ export interface Activity {
 
 export type View =
   | { kind: "mytasks" }
-  | { kind: "dashboard" }
   | { kind: "board"; projectId: string }
   | { kind: "public"; shareId: string }
   | { kind: "privacy" }

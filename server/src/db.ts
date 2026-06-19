@@ -170,6 +170,17 @@ export const initDb = async () => {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS subtasks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS project_managers (
       project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -256,6 +267,7 @@ export const initDb = async () => {
   `;
 
   // Indexes
+  await sql`CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_columns_project ON columns(project_id, position)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC)`;

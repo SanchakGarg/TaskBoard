@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Trash2 } from "lucide-react";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { api } from "../../lib/api";
-import { parseTags, type Member, type Priority, type TagDef, type Task } from "../../lib/types";
+import { parseTags, type Member, type Priority, type Subtask, type TagDef, type Task } from "../../lib/types";
 import { Avatar, Button, DatePicker, Input, Textarea, useConfirm } from "../ui";
 import { AssigneePicker, PriorityPicker, Removable, TagBadge, TagPicker } from "./pickers";
 import { ProgressInput } from "./ProgressInput";
@@ -65,6 +65,36 @@ export function TaskEditor({
   const [externalAssignees, setExternalAssignees] = useState<string[]>(
     task.assignees?.filter((a) => a.isGuest).map((a) => a.name) ?? []
   );
+  const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks ?? []);
+  const [newSub, setNewSub] = useState("");
+
+  const hasSubs = subtasks.length > 0;
+  const doneSubs = subtasks.filter((s) => s.done).length;
+  const derivedProgress = hasSubs ? Math.round((doneSubs / subtasks.length) * 100) : progress;
+
+  const addSubtask = async () => {
+    const t = newSub.trim();
+    if (!t) return;
+    setNewSub("");
+    const tempId = "temp-" + Date.now();
+    setSubtasks((prev) => [...prev, { id: tempId, task_id: task.id, title: t, done: 0, position: prev.length }]);
+    try {
+      const res = await api.post<{ subtask: Subtask }>(`/tasks/${task.id}/subtasks`, { title: t });
+      setSubtasks((prev) => prev.map((s) => (s.id === tempId ? res.subtask : s)));
+    } catch {
+      setSubtasks((prev) => prev.filter((s) => s.id !== tempId));
+    }
+  };
+
+  const toggleSubtask = (s: Subtask) => {
+    setSubtasks((prev) => prev.map((x) => (x.id === s.id ? { ...x, done: x.done ? 0 : 1 } : x)));
+    api.patch(`/subtasks/${s.id}`, { done: !s.done }).catch(() => {});
+  };
+
+  const removeSubtask = (s: Subtask) => {
+    setSubtasks((prev) => prev.filter((x) => x.id !== s.id));
+    api.delete(`/subtasks/${s.id}`).catch(() => {});
+  };
 
   const save = () => {
     let finalDueDate: string | null = null;
@@ -90,7 +120,8 @@ export function TaskEditor({
     const updated: Partial<Task> = {
       title: title.trim() || task.title,
       description,
-      progress,
+      progress: derivedProgress,
+      subtasks,
       priority,
       due_date: finalDueDate,
       tags: JSON.stringify(selectedTags),
@@ -158,7 +189,70 @@ export function TaskEditor({
         <PriorityPicker value={priority} onChange={setPriority} />
       </div>
 
-      <ProgressInput value={progress} onChange={setProgress} />
+      {/* subtasks */}
+      <div className="rounded-lg border-2 border-ink/10 bg-paper-dark/30 p-2">
+        <div className="mb-1 flex items-center gap-2 px-0.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Subtasks</span>
+          {hasSubs && (
+            <span className="text-xs text-ink-soft">
+              {doneSubs}/{subtasks.length}
+            </span>
+          )}
+        </div>
+
+        {subtasks.map((s) => (
+          <div key={s.id} className="group/sub flex items-center gap-2 py-0.5">
+            <button
+              type="button"
+              onClick={() => toggleSubtask(s)}
+              aria-label={s.done ? "Mark not done" : "Mark done"}
+              className={`anim-hover flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 ${
+                s.done ? "border-pen-green bg-pen-green text-paper" : "border-ink-soft/50 text-transparent hover:border-pen-green"
+              }`}
+            >
+              <Check size={10} strokeWidth={3.5} />
+            </button>
+            <span className={`flex-1 truncate text-sm ${s.done ? "text-ink-soft line-through" : "text-ink"}`}>
+              {s.title}
+            </span>
+            <button
+              type="button"
+              onClick={() => removeSubtask(s)}
+              aria-label="Delete subtask"
+              className="anim-hover shrink-0 cursor-pointer rounded p-0.5 text-ink-soft opacity-0 hover:text-pen-red group-hover/sub:opacity-100"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+
+        <div className="mt-1 flex items-center gap-2">
+          <Plus size={13} className="shrink-0 text-ink-soft" />
+          <Input
+            value={newSub}
+            onChange={(e) => setNewSub(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addSubtask();
+              }
+            }}
+            placeholder="Add a subtask…"
+            className="!border-transparent !bg-transparent !px-0 !py-0.5 text-sm"
+          />
+        </div>
+      </div>
+
+      {hasSubs ? (
+        <div className="flex items-center gap-2 px-0.5">
+          <div className="h-2 min-w-0 flex-1 rounded-full border border-ink-soft/30 bg-paper-dark">
+            <div className="h-full rounded-full bg-pen-green" style={{ width: `${derivedProgress}%` }} />
+          </div>
+          <span className="text-xs font-semibold text-pen-green">{derivedProgress}%</span>
+        </div>
+      ) : (
+        <ProgressInput value={progress} onChange={setProgress} />
+      )}
 
       {/* tags row, bottom right */}
       <div className="flex flex-wrap items-center justify-end gap-1.5">
